@@ -33,6 +33,7 @@ from lae.contracts.enums import (
     ExecutionStatus,
     OnDeleteAction,
     PlanAction,
+    RecordRole,
     RetentionAction,
 )
 from lae.contracts.types import Approval, ErasurePlan
@@ -49,6 +50,7 @@ ON_DELETE = [
     OnDeleteAction.SET_NULL,
 ]
 POLICIES = [RetentionAction.DELETE] * 4 + [RetentionAction.ANONYMIZE, RetentionAction.RETAIN]
+OWNED_ROLES = {RecordRole.SUBJECT_ROOT, RecordRole.OWNED}
 BASE = {
     PlanAction.NULLIFY_REFERENCE,
     PlanAction.ANONYMIZE_ROWS,
@@ -201,8 +203,7 @@ def test_random_plans_are_ordered_and_execute_safely(case: tuple[Schema, FakeDB]
             go(ExecutionMode.LIVE)
         return
     if ConflictCode.SHARED_RECORD in {c.code for c in plan.conflicts}:
-        event("shared (not executed)")
-        return  # acknowledged shared rows may cascade into rows outside the record graph
+        event("executed with detached shared rows")
 
     event("executed")
     if any(i.action is PlanAction.NULLIFY_REFERENCE and "cycle" in i.reason for i in plan.items):
@@ -214,6 +215,10 @@ def test_random_plans_are_ordered_and_execute_safely(case: tuple[Schema, FakeDB]
     before = db.checksum()
     others_before = {r["id"]: dict(r) for r in db.rows("customer") if r["id"] != 1}
     graph_rows = {(k.table, k.values) for k, _ in disc.record_graph.nodes()}
+    not_owned = sorted(
+        (k for k, a in disc.record_graph.nodes() if a.role not in OWNED_ROLES),
+        key=lambda k: k.sort_key(),
+    )
     untouched_before = _rows_outside(db, s, graph_rows)
 
     dry = run_in_txn(db, ExecutionMode.DRY_RUN, lambda: go(ExecutionMode.DRY_RUN))
@@ -238,6 +243,10 @@ def test_random_plans_are_ordered_and_execute_safely(case: tuple[Schema, FakeDB]
         assert after[cid] == expect
     # rows unreachable from the subject are byte-identical
     assert _rows_outside(db, s, graph_rows) == untouched_before
+    # policy §2: no row that is not OWNED by the subject is ever deleted
+    for k in not_owned:
+        present = {tuple(r[c] for c in k.columns) for r in db.rows(k.table.name)}
+        assert k.values in present, k
 
 
 def _rows_outside(db: FakeDB, s: Schema, graph_rows: set[Any]) -> list[Any]:

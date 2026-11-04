@@ -55,7 +55,7 @@ from lae.errors import GraphIntegrityError
 from lae.lineage import LineageGraph, RecordDiscoveryResult
 from lae.planner.hashing import plan_with_hash
 from lae.planner.ordering import order_deletions
-from lae.planner.text import definition_token, edge_labels, join_columns, rows
+from lae.planner.text import cascade_check, definition_token, edge_labels, join_columns, rows
 
 __all__ = ["build_plan", "detect_conflicts", "pseudonym_columns"]
 
@@ -182,6 +182,7 @@ class _Planner:
         self.retain: set[RecordKey] = set()
         self.referencing: set[RecordKey] = set()
         self.shared: set[RecordKey] = set()
+        self.shared_blocked: set[RecordKey] = set()  # shared rows with a NOT NULL link
         self.artifact_rows: dict[TableRef, list[RecordKey]] = defaultdict(list)
         self.explicit: set[RecordKey] = set()
         self.expect: set[RecordKey] = set()
@@ -228,6 +229,12 @@ class _Planner:
             role = self.roles[k]
             if self.is_artifact_table(k.table):
                 self.artifact_rows[k.table].append(k)
+                if (
+                    role not in _SUBJECT_ROLES
+                    and not self._is_view(k.table)
+                    and self._maintain_action(k.table) is None
+                ):
+                    self.shared.add(k)  # never deleted by key; subject to the shared-row rules
                 continue
             if role is RecordRole.OWNED and k.table in root_tables:
                 # Root-table protection: only the subject row itself may be deleted.
@@ -322,47 +329,27 @@ class _Planner:
     ) -> None:
         t, label, cols = row.table, edge_labels([e]), join_columns(e.target_columns)
         od = e.on_delete
-        if kind == "other_subject":
-            if removed and od is OnDeleteAction.CASCADE:
-                self.conflict(
-                    ConflictCode.CASCADE_DESTROYS_RETAINED,
-                    Severity.BLOCKING,
-                    t,
-                    f"{t}: rows of other subjects reference rows being deleted through NOT NULL "
-                    f"column(s) {cols} via {label}; the cascade would delete them",
-                )
-            else:
-                self.conflict(
-                    ConflictCode.NOT_NULL_REFERENCE,
-                    Severity.BLOCKING,
-                    t,
-                    f"{t}: rows of other subjects reference the subject through NOT NULL "
-                    f"column(s) {cols} via {label}; the reference cannot be nullified",
-                )
+        if kind == "shared":
+            self.shared_blocked.add(row)  # SHARED_RECORD BLOCKING, emitted by draft_shared
             return
-        if od is OnDeleteAction.CASCADE:
-            if kind == "shared":
-                return  # reported in the SHARED_RECORD message; a human decides
+        if removed and od is OnDeleteAction.CASCADE:
+            return  # CASCADE_DESTROYS_RETAINED, emitted by cascade_conflicts
+        if kind == "other_subject":
             self.conflict(
-                ConflictCode.CASCADE_DESTROYS_RETAINED,
+                ConflictCode.NOT_NULL_REFERENCE,
                 Severity.BLOCKING,
                 t,
-                f"{t}: rows retained by policy {self.policies.action_for(t).value} reference rows "
-                f"being deleted through NOT NULL column(s) {cols} via {label}; the cascade would "
-                f"destroy them",
+                f"{t}: rows of other subjects reference the subject through NOT NULL "
+                f"column(s) {cols} via {label}; the reference cannot be nullified",
             )
         elif od in _RESTRICTING:
-            who = (
-                "shared rows"
-                if kind == "shared"
-                else (f"rows retained by policy {self.policies.action_for(t).value}")
-            )
             self.conflict(
                 ConflictCode.RESTRICT_FROM_RETAINED,
                 Severity.BLOCKING,
                 t,
-                f"{t}: {who} reference rows being deleted through NOT NULL column(s) {cols} via "
-                f"{label}; the delete would be rejected",
+                f"{t}: rows retained by policy {self.policies.action_for(t).value} reference "
+                f"rows being deleted through NOT NULL column(s) {cols} via {label}; the delete "
+                f"would be rejected",
             )
         else:
             self.conflict(
@@ -372,6 +359,42 @@ class _Planner:
                 f"{t}: column(s) {cols} referencing rows being deleted via {label} are NOT NULL "
                 f"and cannot be set to NULL",
             )
+
+    def cascade_conflicts(self) -> None:
+        """Policy §2(c): only OWNED rows that are deleted anyway may be removed by a cascade.
+
+        Any other row (another subject's, a shared row, a retained row) reached through a CASCADE
+        FK from a removed row, whose reference is not nullified first, blocks the plan.
+        """
+        hits: dict[tuple[TableRef, str, bool], set[RecordKey]] = defaultdict(set)
+        for u, v, eid in self.rg.edges():
+            if u not in self.removal or v in self.removal or u == v:
+                continue
+            if self.lineage.edge(eid).on_delete is not OnDeleteAction.CASCADE:
+                continue
+            if (v, eid) in self.detach_draft:
+                continue  # detached before the parent delete
+            if self.roles[v] in _SUBJECT_ROLES:
+                if v not in self.anonymize and v not in self.retain:
+                    continue  # the subject's own derived rows
+                hits[(v.table, str(eid), True)].add(v)
+            else:
+                hits[(v.table, str(eid), False)].add(v)
+        for (t, edge_key, retained), keys in sorted(hits.items()):
+            e = self.lineage.edge(UUID(edge_key))
+            label, cols, n = edge_labels([e]), join_columns(e.target_columns), self.count(keys)
+            if retained:
+                msg = (
+                    f"{t}: {rows(n)} retained by policy {self.policies.action_for(t).value} "
+                    f"reference rows being deleted through NOT NULL column(s) {cols} via "
+                    f"{label}; the cascade would destroy them"
+                )
+            else:
+                msg = (
+                    f"{t}: cascade would delete a record not owned by the subject ({rows(n)} "
+                    f"via {label}, NOT NULL column(s) {cols})"
+                )
+            self.conflict(ConflictCode.CASCADE_DESTROYS_RETAINED, Severity.BLOCKING, t, msg)
 
     # ------------------------------------------------------------------ base drafts
 
@@ -551,24 +574,40 @@ class _Planner:
                 )
 
     def draft_shared(self) -> None:
+        """Policy §2: shared rows are never destroyed.
+
+        Rows with a NOT NULL link into the rows being removed get MANUAL_REVIEW and a BLOCKING,
+        non-acknowledgeable SHARED_RECORD. All other shared rows survive: nullable links are
+        nullified first (NULLIFY_REFERENCE) and a SHARED_RECORD WARNING documents them.
+        """
         by: dict[tuple[Any, ...], list[RecordKey]] = defaultdict(list)
         for r in sorted(self.shared, key=_sk):
-            by[(r.table, r.columns, r.is_predicate)].append(r)
-        for (table, key_cols, _p), keys in sorted(by.items()):
-            self.draft_manual(table, key_cols, keys)
+            by[(r.table, r.columns, r.is_predicate, r in self.shared_blocked)].append(r)
+        for (table, key_cols, _p, blocked), keys in sorted(by.items()):
+            n = self.count(keys)
+            if blocked:
+                self.draft_manual(table, key_cols, keys)
+                continue
+            detached = any(
+                (k, eid) in self.detach_draft for k in keys for _, eid in self.parents[k]
+            )
+            what = (
+                "their references to rows being deleted are set to NULL first"
+                if detached
+                else "they are not modified"
+            )
+            self.conflict(
+                ConflictCode.SHARED_RECORD,
+                Severity.WARNING,
+                table,
+                f"{table}: {rows(n)} shared with another subject are kept; {what}",
+            )
 
     def draft_manual(
         self, table: TableRef, key_cols: tuple[str, ...], keys: list[RecordKey]
     ) -> None:
         n = self.count(keys)
         edges = self.via_edges(keys)
-        cascades = any(
-            p in self.removal and self.lineage.edge(eid).on_delete is OnDeleteAction.CASCADE
-            for k in keys
-            for p, eid in self.parents[k]
-            if (k, eid) not in self.detach_draft
-        )
-        note = "; deleting their parent rows cascades to them" if cascades else ""
         self.add(
             _Draft(
                 phase=6,
@@ -582,7 +621,8 @@ class _Planner:
                 edge_ids={e.edge_id for e in edges},
                 reason=(
                     f"MANUAL_REVIEW {rows(n)} of {table}: shared with another subject "
-                    f"(reached via {edge_labels(edges)}){note}"
+                    f"(reached via {edge_labels(edges)}) through a NOT NULL reference to rows "
+                    f"being deleted"
                 ),
             )
         )
@@ -590,8 +630,50 @@ class _Planner:
             ConflictCode.SHARED_RECORD,
             Severity.BLOCKING,
             table,
-            f"{table}: {rows(n)} shared with another subject; a human must decide{note}",
+            f"{table}: {rows(n)} shared with another subject reference rows being deleted "
+            f"through a NOT NULL column; deleting would destroy or block them. Change the "
+            f"policy or schema and re-plan",
         )
+
+    def cascade_checks(self) -> None:
+        """Policy §2(d): bind, per DELETE_ROWS batch and CASCADE FK, the child-row count that
+        must exist right before the delete. The executor asserts it (see text.cascade_check)."""
+        removal_rank: dict[RecordKey, tuple[Any, ...]] = {}
+        for r in self.removal:
+            if r in self.explicit:
+                removal_rank[r] = self.drafts[self.delete_draft[r]].rank
+            else:
+                removal_rank[r] = min(
+                    (self.drafts[self.delete_draft[t]].rank for t in self.triggers[r]),
+                    default=(-1,),
+                )
+        for d in self.drafts:
+            if d.action is not PlanAction.DELETE_ROWS:
+                continue
+            batch = set(d.keys)
+            fks = sorted(
+                (
+                    e
+                    for e in self.lineage.edges()
+                    if e.level is LineageLevel.TABLE
+                    and e.source == d.table
+                    and e.on_delete is OnDeleteAction.CASCADE
+                ),
+                key=lambda e: (e.constraint_name or "", str(e.edge_id)),
+            )
+            checks = []
+            for e in fks:
+                present = {
+                    v
+                    for u in batch
+                    for v, eid in self.children[u]
+                    if eid == e.edge_id
+                    and (v, eid) not in self.detach_draft
+                    and (v not in removal_rank or removal_rank[v] >= d.rank)
+                }
+                checks.append(cascade_check(e, self.count(present)))
+            if checks:
+                d.reason += "; " + "; ".join(checks)
 
     def delete_constraints(self) -> list[tuple[RecordKey, RecordKey, UUID]]:
         """(u, v, edge_id): v must be removed before u is deleted (both are removed rows)."""
@@ -773,9 +855,6 @@ class _Planner:
                 )
                 continue
             owned = [k for k in keys if self.roles[k] in _SUBJECT_ROLES]
-            other = [k for k in keys if self.roles[k] not in _SUBJECT_ROLES]
-            if other:
-                self.draft_manual(t, other[0].columns, other)
             if owned:
                 need.key_action = key_action
                 need.key_rows = owned
@@ -1088,7 +1167,9 @@ class _Planner:
         detaches = self.plan_detaches()
         self.draft_nullify([d for d in detaches if d.row not in self.anonymize])
         self.draft_anonymize(detaches)
+        self.cascade_conflicts()
         self.plan_deletes()
+        self.cascade_checks()
         self.plan_artifacts()
         self.draft_retained_rows()
         self.draft_shared()

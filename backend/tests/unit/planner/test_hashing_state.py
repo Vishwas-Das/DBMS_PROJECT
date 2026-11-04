@@ -10,9 +10,16 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from erasure_harness import ack_all, make_plan, shop, uid
+from erasure_harness import T, ack_all, make_plan, shop, uid
 
-from lae.contracts.enums import ConflictCode, LineageLevel, PlanAction, PlanStatus, Severity
+from lae.contracts.enums import (
+    ConflictCode,
+    LineageLevel,
+    PlanAction,
+    PlanStatus,
+    Severity,
+    Traceability,
+)
 from lae.contracts.types import ErasurePlan, PlanConflict, TableRef
 from lae.errors import InvalidStateTransition, PlanBlockedError, PlanError, PlanHashMismatch
 from lae.planner import (
@@ -36,6 +43,12 @@ SRC = HERE.parents[2] / "src"
 def _plan() -> ErasurePlan:
     sh = shop()
     return make_plan(sh.schema, sh.db)
+
+
+def _ackable_plan() -> ErasurePlan:
+    """Blocked only by an acknowledgeable OPAQUE_ARTIFACT conflict."""
+    sh = shop(ticket_nullable=True)
+    return make_plan(sh.schema, sh.db, affected={T("daily_revenue"): Traceability.OPAQUE})
 
 
 # ---------------------------------------------------------------------- determinism
@@ -139,8 +152,8 @@ def test_conflict_changes_change_hash() -> None:
 
 
 def test_acknowledge_resolves_and_rehashes() -> None:
-    p = _plan()
-    idx = next(n for n, c in enumerate(p.conflicts) if c.code is ConflictCode.SHARED_RECORD)
+    p = _ackable_plan()
+    idx = next(n for n, c in enumerate(p.conflicts) if c.code is ConflictCode.OPAQUE_ARTIFACT)
     assert p.is_blocked
     q = acknowledge_conflict(p, idx)
     assert q.conflicts[idx].resolved and not q.is_blocked
@@ -172,16 +185,30 @@ def test_only_listed_codes_are_acknowledgeable(code: ConflictCode) -> None:
         assert ei.value.code == "CONFLICT_NOT_ACKNOWLEDGEABLE"
     assert {
         ConflictCode.OPAQUE_ARTIFACT,
-        ConflictCode.SHARED_RECORD,
         ConflictCode.RETAINED_WITH_PII,
         ConflictCode.EXTERNAL_ARTIFACT,
         ConflictCode.NO_PRIMARY_KEY,
     } == ACKNOWLEDGEABLE_CODES
 
 
-def test_ack_all_helper_unblocks_shop() -> None:
+def test_ack_all_helper_unblocks_acknowledgeable_plan() -> None:
+    p = ack_all(_ackable_plan())
+    assert not p.is_blocked
+    assert all(c.resolved for c in p.conflicts if c.code is not ConflictCode.SHARED_RECORD)
+
+
+def test_shared_record_can_never_be_acknowledged() -> None:
+    """Policy §2(b): the default shop's shared message (NOT NULL ticket_id) blocks for good."""
     p = ack_all(_plan())
-    assert not p.is_blocked and all(c.resolved for c in p.conflicts)
+    assert p.is_blocked
+    idx = next(
+        n
+        for n, c in enumerate(p.conflicts)
+        if c.code is ConflictCode.SHARED_RECORD and c.severity is Severity.BLOCKING
+    )
+    with pytest.raises(PlanError) as ei:
+        acknowledge_conflict(p, idx)
+    assert ei.value.code == "CONFLICT_NOT_ACKNOWLEDGEABLE"
 
 
 # ---------------------------------------------------------------------- status machine
@@ -214,7 +241,7 @@ def test_transition_matrix(current: PlanStatus, target: PlanStatus) -> None:
 
 
 def test_initial_status_and_approval_checks() -> None:
-    p = _plan()
+    p = _ackable_plan()
     assert initial_status(p) is PlanStatus.BLOCKED
     with pytest.raises(PlanBlockedError):
         check_approval(p, PlanStatus.BLOCKED, p.plan_hash)

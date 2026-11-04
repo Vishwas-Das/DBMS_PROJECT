@@ -195,7 +195,7 @@ def test_affected_artifact_missing_from_catalog_is_unresolved() -> None:
     assert "not in the catalog" in un.reason
 
 
-def test_shared_rows_in_keyed_artifact_need_review() -> None:
+def test_shared_rows_in_keyed_artifact_are_kept() -> None:
     s = Schema()
     s.table("customer", "id")
     s.table("cache", "id", "customer_id", "owner_id")
@@ -208,8 +208,12 @@ def test_shared_rows_in_keyed_artifact_need_review() -> None:
     db.insert("cache", id=7, customer_id=1, owner_id=2)
     db.insert("cache", id=8, customer_id=1, owner_id=None)
     plan = make_plan(s, db, subject=(1,))
-    assert items_of(plan, A.MANUAL_REVIEW, "cache")[0].record_keys == ((7,),)
+    # the shared cache row is never invalidated and not linked to deleted rows: kept, warned
+    assert not items_of(plan, A.MANUAL_REVIEW)
     assert items_of(plan, A.INVALIDATE_CACHE, "cache")[0].record_keys == ((8,),)
+    c = next(c for c in plan.conflicts if c.code is ConflictCode.SHARED_RECORD)
+    assert c.severity is Severity.WARNING and "not modified" in c.message
+    assert not plan.is_blocked
 
 
 def test_artifact_cycle_is_unbreakable_cycle_conflict() -> None:

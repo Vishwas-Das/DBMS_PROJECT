@@ -33,7 +33,7 @@ from sqlalchemy.orm import Session
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 REPO_ROOT = BACKEND_DIR.parent
 GENERATOR_PATH = REPO_ROOT / "db" / "fixtures" / "generator.py"
-ALLOWED_TEST_DATABASE = "lae_test"
+ALLOWED_TEST_DATABASE = "lae_test"  # exact name, or a per-workstream "lae_test_<suffix>" (Lead)
 DEFAULT_SCALE = "tiny"
 DEFAULT_SEED = 7
 
@@ -90,7 +90,8 @@ RESET_SQL = (
 @pytest.fixture(scope="session")
 def migrated_url(pg_url: str) -> str:
     url = _psycopg_url(pg_url)
-    if make_url(url).database != ALLOWED_TEST_DATABASE:
+    db = make_url(url).database or ""
+    if not (db == ALLOWED_TEST_DATABASE or db.startswith(ALLOWED_TEST_DATABASE + "_")):
         pytest.fail(
             f"integration fixtures only run against the {ALLOWED_TEST_DATABASE!r} database",
             pytrace=False,

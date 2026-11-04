@@ -82,6 +82,29 @@ def _group_by_table(
     return [tuple(sorted(by_table[t], key=_sk)) for t in tables if t in by_table]
 
 
+def _ranks(
+    rows: Set[RecordKey], pairs: Set[tuple[RecordKey, RecordKey]]
+) -> dict[RecordKey, int] | None:
+    """Longest-path rank (0 = first) for every row; None if `pairs` contain a cycle."""
+    succ: dict[RecordKey, list[RecordKey]] = {r: [] for r in rows}
+    indeg: dict[RecordKey, int] = dict.fromkeys(rows, 0)
+    for f, t in pairs:
+        succ[f].append(t)
+        indeg[t] += 1
+    rank = dict.fromkeys(rows, 0)
+    ready = sorted((r for r in rows if indeg[r] == 0), key=_sk)
+    seen = 0
+    while ready:
+        r = ready.pop()
+        seen += 1
+        for t in succ[r]:
+            rank[t] = max(rank[t], rank[r] + 1)
+            indeg[t] -= 1
+            if indeg[t] == 0:
+                ready.append(t)
+    return rank if seen == len(rows) else None
+
+
 def order_deletions(
     explicit: Set[RecordKey],
     triggers: Mapping[RecordKey, frozenset[RecordKey]],
@@ -96,10 +119,14 @@ def order_deletions(
     says whether the reference may be nullified to break a cycle.
     """
     mapped: dict[Triple, list[tuple[RecordKey, RecordKey]]] = {}
+    same_table: set[tuple[RecordKey, RecordKey]] = set()  # (first, then), one table
     for u, v, eid in constraints:
         d = min(triggers[v], key=_sk)
         for b in sorted(triggers[u], key=_sk):
-            if b == d or b.table == d.table:
+            if b == d:
+                continue
+            if b.table == d.table:
+                same_table.add((d, b))  # irrelevant if both land in one DELETE statement
                 continue
             mapped.setdefault((b, d, eid), []).append((u, v))
 
@@ -137,16 +164,28 @@ def order_deletions(
         batches = _group_by_table(list(order.order), topo)
     else:
         # Table-level cycle without a record-level one: split tables into per-rank batches.
-        firsts: dict[RecordKey, list[RecordKey]] = {}
-        for f, t in before:
-            firsts.setdefault(t, []).append(f)
-        rank: dict[RecordKey, int] = {}
-        for r in order.order:  # children (firsts) come before the rows that depend on them
-            rank[r] = 1 + max((rank[f] for f in firsts.get(r, ())), default=-1)
+        # Rows of one table may now land in different statements, so constraints between rows
+        # of the same table count as well.
+        pairs = before | same_table
+        ranks = _ranks(explicit, pairs)
+        if ranks is None:
+            tables = sorted({r.table.qualified() for r in explicit})
+            err = GraphIntegrityError(
+                "record-level cycle cannot be ordered across batches",
+                code="UNBREAKABLE_CYCLE",
+                details={"tables": tables, "record_count": len(explicit)},
+            )
+            return OrderedDeletes(
+                batches=tuple(_group_by_table(sorted(explicit, key=_sk), sorted(all_tables))),
+                breaks=tuple(breaks),
+                before=tuple(sorted(pairs, key=lambda p: (_sk(p[0]), _sk(p[1])))),
+                cycle=err,
+            )
         groups: dict[tuple[int, TableRef], list[RecordKey]] = {}
-        for r in order.order:
-            groups.setdefault((rank[r], r.table), []).append(r)
+        for r in sorted(explicit, key=_sk):
+            groups.setdefault((ranks[r], r.table), []).append(r)
         batches = [tuple(sorted(groups[g], key=_sk)) for g in sorted(groups)]
+        before = pairs
     return OrderedDeletes(
         batches=tuple(batches),
         breaks=tuple(breaks),

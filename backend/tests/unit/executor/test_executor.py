@@ -48,6 +48,7 @@ from lae.contracts.types import (
     ErasurePlan,
     KeyMapping,
     KeyTuple,
+    PlanItem,
     TableRef,
 )
 from lae.errors import (
@@ -60,7 +61,7 @@ from lae.errors import (
     TargetQueryError,
     ValidationError,
 )
-from lae.executor import DEFINITION_TOKEN, execute_plan
+from lae.executor import CASCADE_CHECK_RE, DEFINITION_TOKEN, execute_plan
 from lae.planner import DEFINITION_TOKEN as PLANNER_TOKEN
 from lae.planner import compute_plan_hash, plan_with_hash, pseudonym_columns
 
@@ -119,7 +120,7 @@ def assert_no_raw(err: Exception) -> None:
 
 
 def test_live_happy_path_erases_subject_and_keeps_others() -> None:
-    sh = shop()
+    sh = shop(ticket_nullable=True)
     before = sh.db.snapshot()
     plan = ready_plan(sh)
     result, audit = run(sh, plan)
@@ -131,7 +132,7 @@ def test_live_happy_path_erases_subject_and_keeps_others() -> None:
     for item, step in zip(plan.items, result.steps, strict=True):
         assert step.expected_rows == item.expected_row_count
         assert step.duration_ms == 5
-        if item.action is PlanAction.MANUAL_REVIEW:
+        if item.action is PlanAction.MANUAL_REVIEW:  # pragma: no cover - none in this plan
             assert step.status is StepStatus.SKIPPED and step.rows_affected is None
         else:
             assert step.status is StepStatus.APPLIED
@@ -144,7 +145,10 @@ def test_live_happy_path_erases_subject_and_keeps_others() -> None:
     assert {(r["order_id"], r["line_no"]) for r in db.rows("order_line")} == {(2001, 1)}
     assert set(by_id(db, "shipment")) == {502} and set(by_id(db, "payment")) == {602}
     assert set(by_id(db, "support_ticket")) == {302}
-    assert set(by_id(db, "ticket_message")) == {403}  # 402 (acknowledged shared) cascaded
+    # 402 (customer 77 on the subject ticket) survives, detached from the deleted ticket
+    assert set(by_id(db, "ticket_message")) == {402, 403}
+    assert by_id(db, "ticket_message")[402]["ticket_id"] is None
+    assert by_id(db, "ticket_message")[402]["author_customer_id"] == 77
     assert [r["customer_id"] for r in db.rows("marketing_event_log")] == [99]
     assert set(by_id(db, "document_embedding")) == {802}
     assert set(by_id(db, "customer_profile_cache", "customer_id")) == {99}
@@ -173,7 +177,7 @@ def test_rediscovery_after_live_run_finds_only_the_cleanup_state() -> None:
 
 
 def test_dry_run_performs_identical_operations_and_changes_nothing() -> None:
-    a, b = shop(), shop()
+    a, b = shop(ticket_nullable=True), shop(ticket_nullable=True)
     checksum = a.db.checksum()
     plan = ready_plan(a)
     assert plan == ready_plan(b)
@@ -247,12 +251,16 @@ def test_blocked_plan_is_rejected_before_any_access() -> None:
     sh.db.ops.clear()
     with pytest.raises(PlanBlockedError) as ei:
         run(sh, plan)
-    assert ei.value.details["unresolved"] == ["NO_PRIMARY_KEY", "SHARED_RECORD"]
+    assert ei.value.details["unresolved"] == [
+        "CASCADE_DESTROYS_RETAINED",
+        "NO_PRIMARY_KEY",
+        "SHARED_RECORD",
+    ]
     assert sh.db.ops == []
 
 
 def test_hash_mismatch_and_wrong_plan_are_rejected() -> None:
-    sh = shop()
+    sh = shop(ticket_nullable=True)
     plan = ready_plan(sh)
     sh.db.ops.clear()
     with pytest.raises(PlanHashMismatch):
@@ -309,7 +317,7 @@ def test_naive_clock_is_rejected() -> None:
 
 
 def test_new_order_after_planning_is_stale_and_nothing_is_written() -> None:
-    sh = shop()
+    sh = shop(ticket_nullable=True)
     plan = ready_plan(sh)
     sh.db.insert("purchase_order", id=1003, customer_id=42, shipping_name="late")
     checksum = sh.db.checksum()
@@ -362,7 +370,7 @@ class MiscountingDB(FakeDB):
 
 
 def test_dml_rowcount_mismatch_rolls_back_everything() -> None:
-    sh = shop()
+    sh = shop(ticket_nullable=True)
     plan = ready_plan(sh)
     db = MiscountingDB(sh.db, T("purchase_order"))
     checksum = db.checksum()
@@ -388,13 +396,16 @@ class SurvivingCascadeDB(FakeDB):
 
     def count_by_columns(self, table: TableRef, columns: Any, values: Any) -> int:
         n = super().count_by_columns(table, columns, values)
-        return n + 1 if table == self.bad else n
+        return n + 1 if table == self.bad and (n == 0 or self.always) else n
+
+    always = True
 
 
 def test_cascade_that_leaves_rows_is_a_mismatch() -> None:
-    sh = shop()
+    sh = shop(ticket_nullable=True)
     plan = ready_plan(sh)
     db = SurvivingCascadeDB(sh.db, T("customer_address"))
+    db.always = False  # only after the cascade ran: the pre-delete cascade check passes
     with pytest.raises(RowCountMismatch) as ei:
         run(sh, plan, db=db)
     (ex,) = items_of(plan, PlanAction.EXPECT_CASCADE, "customer_address")
@@ -430,30 +441,136 @@ OP_OF = {
 }
 
 
-@pytest.mark.parametrize("k", range(15))
-def test_injected_failure_at_any_step_rolls_back_fully(k: int) -> None:
-    """AT-15 on the fake: a failure at step k leaves every table unchanged."""
-    sh = shop()
-    plan = ready_plan(sh)
-    steps = _dml_steps(plan)
-    if k >= len(steps):
-        pytest.skip("plan has fewer DML steps")
-    chosen = plan.items[steps[k] - 1]
-    op = OP_OF[chosen.action]
-    # the first step performing this operation on this table is the one that fails
-    item = next(i for i in plan.items if OP_OF.get(i.action) == op and i.table == chosen.table)
+def _ops(item: PlanItem) -> set[tuple[str, TableRef]]:
+    ops = {(OP_OF[item.action], item.table)} if item.action in OP_OF else set()
+    if item.action is PlanAction.DELETE_ROWS:  # the pre-delete cascade checks count children
+        ops |= {
+            ("count", TableRef.parse(m["child"])) for m in CASCADE_CHECK_RE.finditer(item.reason)
+        }
+    return ops
+
+
+def test_injected_failure_at_any_step_rolls_back_fully() -> None:
+    """AT-15 on the fake: a failure at any DML step leaves every table unchanged."""
+    template = ready_plan(shop(ticket_nullable=True))
+    targets = sorted({op for i in template.items for op in _ops(i)}, key=repr)
+    assert len(_dml_steps(template)) >= 15
+    for op, table in targets:
+        sh = shop(ticket_nullable=True)
+        plan = ready_plan(sh)
+        item = next(i for i in plan.items if (op, table) in _ops(i))
+        checksum = sh.db.checksum()
+        sh.db.fail_on = lambda o, t, op=op, table=table: o == op and t == table
+        with pytest.raises(ExecutionError) as ei:
+            run(sh, plan)
+        assert ei.value.code == "STEP_FAILED"
+        assert ei.value.details["step_order"] == item.step_order
+        assert ei.value.details["action"] == item.action.value
+        assert ei.value.details["error_type"] == "RuntimeError"
+        assert len(ei.value.details["completed_steps"]) == item.step_order - 1
+        assert sh.db.checksum() == checksum
+        assert_no_raw(ei.value)
+        assert ei.value.__cause__ is None and ei.value.__suppress_context__
+
+
+# ---------------------------------------------------------------------- policy §2: shared rows
+
+
+def test_shared_message_with_not_null_link_is_never_deleted() -> None:
+    sh = shop()  # ticket_message.ticket_id NOT NULL ON DELETE CASCADE
+    plan = ack_all(make_plan(sh.schema, sh.db, predicate_row_counts=marketing_counts(sh.db)))
+    assert plan.is_blocked  # SHARED_RECORD / CASCADE_DESTROYS_RETAINED cannot be acknowledged
     checksum = sh.db.checksum()
-    sh.db.fail_on = lambda o, table: o == op and table == item.table
-    with pytest.raises(ExecutionError) as ei:
+    with pytest.raises(PlanBlockedError) as ei:
         run(sh, plan)
-    assert ei.value.code == "STEP_FAILED"
-    assert ei.value.details["step_order"] == item.step_order
-    assert ei.value.details["action"] == item.action.value
-    assert ei.value.details["error_type"] == "RuntimeError"
-    assert len(ei.value.details["completed_steps"]) == item.step_order - 1
-    assert sh.db.checksum() == checksum
-    assert_no_raw(ei.value)
-    assert ei.value.__cause__ is None and ei.value.__suppress_context__
+    assert {"SHARED_RECORD", "CASCADE_DESTROYS_RETAINED"} <= set(ei.value.details["unresolved"])
+    assert 402 in by_id(sh.db, "ticket_message") and sh.db.checksum() == checksum
+
+
+def test_shared_message_with_nullable_link_survives_execution() -> None:
+    sh = shop(ticket_nullable=True)
+    plan = ready_plan(sh)
+    result, _ = run(sh, plan)
+    assert result.status is ExecutionStatus.COMMITTED
+    msg = by_id(sh.db, "ticket_message")[402]
+    assert msg == {"id": 402, "ticket_id": None, "author_customer_id": 77, "body": "reply"}
+
+
+def test_unplanned_cascade_row_inserted_after_planning_rolls_back() -> None:
+    """A row inserted after the drift check (concurrent writer) would be cascaded silently;
+    the pre-delete cascade check catches it and the whole run rolls back."""
+    sh = shop(ticket_nullable=True)
+    plan = ready_plan(sh)
+    real = sh.rediscover()
+
+    def rediscover_then_insert(reader: Any) -> tuple[str, str]:
+        out = real(reader)
+        sh.db.insert("customer_address", id=9, customer_id=42, street="late")
+        return out
+
+    checksum = sh.db.checksum()
+    with pytest.raises(RowCountMismatch) as ei:
+        run(sh, plan, rediscover=rediscover_then_insert)
+    (cust,) = items_of(plan, PlanAction.DELETE_ROWS, "customer")
+    e = ei.value
+    assert (e.step_order, e.expected, e.actual) == (cust.step_order, 2, 3)
+    assert e.details["cascade_check"] == "fk_address_customer"
+    assert e.details["child_table"] == "app.customer_address"
+    assert sh.db.checksum() == checksum  # rolled back, including the late row
+    assert_no_raw(e)
+
+
+def test_missing_cascade_child_is_also_a_mismatch() -> None:
+    sh = shop(ticket_nullable=True)
+    plan = ready_plan(sh)
+    real = sh.rediscover()
+
+    def rediscover_then_delete(reader: Any) -> tuple[str, str]:
+        out = real(reader)
+        sh.db.data[T("customer_address")] = [
+            r for r in sh.db.rows("customer_address") if r["id"] != 1
+        ]
+        return out
+
+    with pytest.raises(RowCountMismatch) as ei:
+        run(sh, plan, rediscover=rediscover_then_delete)
+    assert ei.value.actual in (1, 2)
+
+
+def test_cascade_check_on_non_key_parent_columns() -> None:
+    s = Schema()
+    s.table("customer", "id", "code", not_null=("code",))
+    s.table("badge", "id", "customer_code", not_null=("customer_code",))
+    s.fk("fk_badge_code", "badge", ["customer_code"], "customer", ["code"], OnDeleteAction.CASCADE)
+    db = FakeDB(s)
+    db.insert("customer", id=1, code="c-1")
+    db.insert("customer", id=2, code="c-2")
+    db.insert("badge", id=10, customer_code="c-1")
+    db.insert("badge", id=11, customer_code="c-2")
+    plan = make_plan(s, db, subject=(1,))
+    (cust,) = items_of(plan, PlanAction.DELETE_ROWS, "customer")
+    assert "cascade_check fk_badge_code: app.badge(customer_code) <- (code) = 1" in cust.reason
+    res = execute_plan(
+        plan,
+        approve(plan),
+        db,
+        rediscover_fn(s, "customer", (1,)),
+        FakeAudit(),
+        LIVE,
+        clock=StepClock(),
+    )
+    assert res.status is ExecutionStatus.COMMITTED and db.ids("badge") == [11]
+
+
+def test_malformed_cascade_check_is_invalid_plan() -> None:
+    sh = shop(shared_message=False)
+    plan = ready_plan(sh)
+    idx = next(n for n, i in enumerate(plan.items) if i.action is PlanAction.DELETE_ROWS)
+    bad = replace(plan.items[idx], reason="x; cascade_check fk: app.t(a,b) <- (id) = 1")
+    items = (*plan.items[:idx], bad, *plan.items[idx + 1 :])
+    with pytest.raises(PlanError) as ei:
+        run(sh, plan_with_hash(replace(plan, items=items)))
+    assert ei.value.code == "INVALID_PLAN"
 
 
 def test_failure_during_locking_is_wrapped() -> None:
@@ -552,3 +669,37 @@ def test_fake_db_satisfies_target_writer_protocol() -> None:
     assert isinstance(ColumnRef(T("x"), "c"), ColumnRef)
     key: KeyTuple = (1,)
     assert key == (1,)
+
+
+def test_ranked_batches_respect_same_table_constraints() -> None:
+    """Regression: with a table-level cycle the deletes are split into ranked batches, and a
+    constraint between two rows of the *same* table must still be honoured (or block)."""
+    s = Schema()
+    s.table("customer", "id")
+    s.table("a", "id", "customer_id", "b_id", "peer_id", not_null=("customer_id",))
+    s.table("b", "id", "customer_id", "a_id", not_null=("customer_id",))
+    s.fk("fk_a_customer", "a", ["customer_id"], "customer", ["id"], OnDeleteAction.CASCADE)
+    s.fk("fk_b_customer", "b", ["customer_id"], "customer", ["id"], OnDeleteAction.CASCADE)
+    s.fk("fk_a_b", "a", ["b_id"], "b", ["id"], OnDeleteAction.NO_ACTION)
+    s.fk("fk_b_a", "b", ["a_id"], "a", ["id"], OnDeleteAction.NO_ACTION)
+    s.fk("fk_a_peer", "a", ["peer_id"], "a", ["id"], OnDeleteAction.NO_ACTION)
+    s.policy("customer", RetentionAction.ANONYMIZE)  # root kept: a/b rows are explicit deletes
+    db = FakeDB(s)
+    db.insert("customer", id=1)
+    db.insert("a", id=1, customer_id=1, b_id=None, peer_id=2)  # a1 references a2
+    db.insert("b", id=1, customer_id=1, a_id=1)
+    db.insert("a", id=2, customer_id=1, b_id=1, peer_id=None)
+    plan = ack_all(make_plan(s, db, subject=(1,)))
+    if plan.is_blocked:
+        assert "UNBREAKABLE_CYCLE" in {c.code.value for c in plan.conflicts}
+        return
+    res = execute_plan(  # pragma: no cover - current planner blocks this case
+        plan,
+        approve(plan),
+        db,
+        rediscover_fn(s, "customer", (1,)),
+        FakeAudit(),
+        LIVE,
+        clock=StepClock(),
+    )
+    assert res.status is ExecutionStatus.COMMITTED  # pragma: no cover

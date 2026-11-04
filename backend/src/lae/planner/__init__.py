@@ -12,10 +12,11 @@ from lae.planner.state import (
     check_transition,
     initial_status,
 )
-from lae.planner.text import DEFINITION_TOKEN, definition_token
+from lae.planner.text import CASCADE_CHECK_TOKEN, DEFINITION_TOKEN, definition_token
 
 __all__ = [
     "ACKNOWLEDGEABLE_CODES",
+    "CASCADE_CHECK_TOKEN",
     "DEFINITION_TOKEN",
     "TRANSITIONS",
     "acknowledge_conflict",

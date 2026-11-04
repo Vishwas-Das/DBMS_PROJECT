@@ -43,13 +43,14 @@ TRANSITIONS: MappingProxyType[PlanStatus, frozenset[PlanStatus]] = MappingProxyT
 ACKNOWLEDGEABLE_CODES: frozenset[ConflictCode] = frozenset(
     {
         ConflictCode.OPAQUE_ARTIFACT,
-        ConflictCode.SHARED_RECORD,
         ConflictCode.RETAINED_WITH_PII,
         ConflictCode.EXTERNAL_ARTIFACT,
         ConflictCode.NO_PRIMARY_KEY,
     }
 )
-"""Conflicts a human may accept. All other codes need a policy (or schema) change and a re-plan."""
+"""Conflicts a human may accept. All other codes need a policy (or schema) change and a re-plan.
+SHARED_RECORD is not acknowledgeable (CR erasure-engine-engineer-1, policy §2): shared records are
+never destroyed; a BLOCKING one needs a policy or schema decision."""
 
 
 def check_transition(current: PlanStatus, target: PlanStatus) -> None:

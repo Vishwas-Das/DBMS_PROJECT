@@ -158,3 +158,22 @@ the same computation. Also exported: `plan_with_hash`, `plan_hash_payload`, `ini
   (b) If the link is NOT NULL (it would cascade or be restricted), `SHARED_RECORD` is BLOCKING and **not acknowledgeable** (removed from the acknowledgeable set). Resolving it needs a policy/schema decision, not a click.
   (c) Any row that an `ON DELETE CASCADE` would remove but that is not OWNED is a BLOCKING conflict (`CASCADE_DESTROYS_RETAINED`, message "cascade would delete a record not owned by the subject").
   (d) The executor adds a safety assertion: before each parent `DELETE_ROWS`, count the child rows on every CASCADE FK that reference the batch and require that count == the planned `EXPECT_CASCADE` total for that FK, otherwise `RowCountMismatch`. This catches unplanned cascades from concurrent inserts as well.
+
+---
+## Implementation of the policy §2 decision (Erasure Engine Engineer, 2026-11-04)
+Implemented in `backend/src/lae/{planner,executor}/` with unit tests on the fakes. No contract file was changed.
+
+- **(a)** A SHARED row whose every link into the removed rows is a nullable FK gets `NULLIFY_REFERENCE` on that FK. It runs in phase 1, so it comes before the parent DELETE, and the DELETE `depends_on` it. The row also gets a `SHARED_RECORD` **WARNING**. There is no MANUAL_REVIEW item, and the row survives. A shared row with no FK link to removed rows also gets a WARNING ("kept; not modified"). This includes non-owned rows of key-addressable artifacts (CACHE / DELETE_BY_KEY), which are never deleted by key.
+- **(b)** Any NOT NULL link gives `MANUAL_REVIEW` plus a `SHARED_RECORD` **BLOCKING** conflict. `SHARED_RECORD` is removed from `ACKNOWLEDGEABLE_CODES`. A NOT NULL RESTRICT/NO ACTION link from a shared row is reported only as SHARED_RECORD; it no longer also produces RESTRICT_FROM_RETAINED.
+- **(c)** A new pass, `cascade_conflicts`, checks every record edge `u → v` where u is removed, the FK is `ON DELETE CASCADE`, v is not removed, and the reference is not nullified first. That gives `CASCADE_DESTROYS_RETAINED` BLOCKING.
+  - The message is "cascade would delete a record not owned by the subject (...)" for rows of other subjects and shared rows.
+  - For OWNED rows retained by ANONYMIZE/RETAIN the message is unchanged.
+  - This pass replaces the earlier per-kind CASCADE branches.
+- **(d) Metadata choice: a hash-bound reason clause.** No new kwarg and no PlanItem field. This follows the `definition_sha256` precedent. Each DELETE_ROWS reason gets one clause per CASCADE FK whose parent is the batch table (all FK edge statuses):
+  `cascade_check <constraint>: <schema.child>(<c1>,..) <- (<p1>,..) = <n>`
+  - `n` is the number of child rows that must reference the batch just before its DELETE. That is planned EXPECT_CASCADE rows (plus same-batch rows) still present at that point, minus rows deleted earlier and references nullified earlier.
+  - The reason is part of the plan hash, so the counts are approved together with the plan.
+  - The executor parses it (`lae.executor.CASCADE_CHECK_RE`; the grammar lives in `lae.planner.text.cascade_check`). Before each DELETE_ROWS it projects the parent columns: the key itself, or `select_by_columns` for FKs on non-PK columns. It then counts with `count_by_columns(child, child_cols, values)`.
+  - A count that differs from `n` raises `RowCountMismatch(step, n, actual)` with `details.cascade_check` and `details.child_table`. More rows means an unplanned cascade (e.g. a concurrent insert after the drift check); fewer rows means drift. A malformed clause gives `PlanError(INVALID_PLAN)`.
+  - Limitation: the check covers direct children of the batch. Grandchildren reached through a planned EXPECT_CASCADE row are covered by that row's post-delete EXPECT_CASCADE count, but an unplanned grandchild under a planned child is not.
+- **Fix found by the new Hypothesis property:** when deletes are split into ranked batches (a table-level cycle), constraints between rows of the *same* table are now included in the ranking. If they make the order impossible, the plan reports `UNBREAKABLE_CYCLE` (BLOCKING) instead of an order that would fail at execution.

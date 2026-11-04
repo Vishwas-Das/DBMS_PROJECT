@@ -110,14 +110,59 @@ def test_root_table_protection_overrides_owned_role() -> None:
     assert (99,) in keyset(plan, A.NULLIFY_REFERENCE, "customer")
 
 
-def test_shared_record_is_manual_review_and_blocking() -> None:
+def test_not_null_shared_record_is_blocking_and_cascade_flagged() -> None:
+    """Policy §2(b)/(c): message 402 (customer 77) on the subject ticket, ticket_id NOT NULL."""
     sh = shop()
     plan = make_plan(sh.schema, sh.db)
     (mr,) = items_of(plan, A.MANUAL_REVIEW, "ticket_message")
     assert mr.record_keys == ((402,),) and mr.lineage_level is LineageLevel.RECORD
-    assert "cascades" in mr.reason
+    shared = next(c for c in plan.conflicts if c.code is ConflictCode.SHARED_RECORD)
+    assert shared.severity is Severity.BLOCKING and not shared.resolved
+    cascade = next(c for c in plan.conflicts if c.code is ConflictCode.CASCADE_DESTROYS_RETAINED)
+    assert cascade.table == T("ticket_message") and cascade.severity is Severity.BLOCKING
+    assert "cascade would delete a record not owned by the subject" in cascade.message
+    assert plan.is_blocked
+    deleted = {k for i in plan.items if i.category is ActionCategory.DELETE for k in i.record_keys}
+    assert (402,) not in deleted
+
+
+def test_nullable_shared_record_is_detached_before_parent_delete() -> None:
+    """Policy §2(a): the shared message is detached (NULLIFY) before its ticket is deleted."""
+    sh = shop(ticket_nullable=True)
+    plan = make_plan(sh.schema, sh.db)
+    (nul,) = items_of(plan, A.NULLIFY_REFERENCE, "ticket_message")
+    assert nul.record_keys == ((402,),) and nul.target_columns == ("ticket_id",)
+    assert "shared rows" in nul.reason
+    (ticket,) = items_of(plan, A.DELETE_ROWS, "support_ticket")
+    assert nul.step_order < ticket.step_order and nul.step_order in ticket.depends_on
+    # the cascade check of the ticket batch expects only the subject's own message (401)
+    assert "cascade_check fk_tm_ticket: app.ticket_message(ticket_id) <- (id) = 1" in ticket.reason
+    assert not items_of(plan, A.MANUAL_REVIEW)
     c = next(c for c in plan.conflicts if c.code is ConflictCode.SHARED_RECORD)
-    assert c.severity is Severity.BLOCKING and not c.resolved and plan.is_blocked
+    assert c.severity is Severity.WARNING and "set to NULL first" in c.message
+    assert ConflictCode.CASCADE_DESTROYS_RETAINED not in codes(plan)
+    assert not plan.is_blocked
+
+
+def test_shared_row_with_not_null_restrict_link_is_blocking() -> None:
+    s = Schema()
+    s.table("customer", "id")
+    s.table("thread", "id", "customer_id", not_null=("customer_id",))
+    s.table("post", "id", "thread_id", "author_id", not_null=("thread_id",))
+    s.fk(
+        "fk_thread_customer", "thread", ["customer_id"], "customer", ["id"], OnDeleteAction.CASCADE
+    )
+    s.fk("fk_post_thread", "post", ["thread_id"], "thread", ["id"], OnDeleteAction.RESTRICT)
+    s.fk("fk_post_author", "post", ["author_id"], "customer", ["id"], OnDeleteAction.SET_NULL)
+    db = FakeDB(s)
+    db.insert("customer", id=1)
+    db.insert("customer", id=2)
+    db.insert("thread", id=5, customer_id=1)
+    db.insert("post", id=9, thread_id=5, author_id=2)
+    plan = make_plan(s, db, subject=(1,))
+    blocking = {c.code for c in plan.conflicts if c.severity is Severity.BLOCKING}
+    assert blocking == {ConflictCode.SHARED_RECORD}
+    assert items_of(plan, A.MANUAL_REVIEW, "post")
 
 
 def test_no_shared_record_gives_unblocked_plan() -> None:
@@ -183,10 +228,13 @@ def test_reasons_are_pii_free_and_explainable() -> None:
     (po,) = items_of(plan, A.DELETE_ROWS, "purchase_order")
     assert po.reason == (
         "DELETE 2 rows of app.purchase_order: owned by subject via FK fk_po_customer "
-        "(ON DELETE RESTRICT)"
+        "(ON DELETE RESTRICT); cascade_check fk_ol_order: app.order_line(order_id) <- (id) = 3"
     )
     (root,) = items_of(plan, A.DELETE_ROWS, "customer")
-    assert root.reason == "DELETE 1 row of app.customer: subject root"
+    assert root.reason == (
+        "DELETE 1 row of app.customer: subject root; cascade_check fk_address_customer: "
+        "app.customer_address(customer_id) <- (id) = 2"
+    )
     assert root.reason_edge_ids == ()
     assert po.reason_edge_ids == (uid("fk_po_customer"),)
 

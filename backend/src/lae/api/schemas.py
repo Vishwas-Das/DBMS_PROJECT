@@ -160,6 +160,10 @@ class GraphEdgeOut(_Out):
     evidence: dict[str, Any] = Field(default_factory=dict)
 
 
+class EdgeStatusUpdate(_In):
+    status: Literal["CONFIRMED", "REJECTED"]
+
+
 class SchemaGraphOut(_Out):
     snapshot_id: UUID
     level: Literal["TABLE", "COLUMN"]
@@ -284,6 +288,12 @@ class CheckOut(_Out):
     expected: dict[str, Any]
 
 
+class ResidualHitOut(_Out):
+    table: str
+    column: str
+    count: int
+
+
 class VerificationOut(_Out):
     id: UUID
     execution_run_id: UUID
@@ -293,7 +303,7 @@ class VerificationOut(_Out):
     verified_artifacts: int
     coverage: float  # display only; exact values are required/verified
     checks: list[CheckOut]
-    residual_hits: list[dict[str, Any]]
+    residual_hits: list[ResidualHitOut]
     started_at: datetime
     finished_at: datetime | None
     duration_ms: int | None

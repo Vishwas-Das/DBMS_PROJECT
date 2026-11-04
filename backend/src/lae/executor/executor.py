@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -55,11 +56,17 @@ from lae.errors import (
     ValidationError,
 )
 
-__all__ = ["DEFINITION_TOKEN", "execute_plan"]
+__all__ = ["CASCADE_CHECK_RE", "DEFINITION_TOKEN", "execute_plan"]
 
 logger = logging.getLogger(__name__)
 
 DEFINITION_TOKEN = "definition_sha256="  # noqa: S105 - must equal lae.planner.text.DEFINITION_TOKEN
+
+CASCADE_CHECK_RE = re.compile(
+    r"cascade_check (?P<fk>[^:\s]+): (?P<child>[^\s(]+)\((?P<cols>[^)]*)\) "
+    r"<- \((?P<pcols>[^)]*)\) = (?P<n>\d+)"
+)
+"""Grammar of the hash-bound cascade checks in DELETE_ROWS reasons (lae.planner.text)."""
 
 _NULL = ColumnAssignment("NULL")
 _PSEUDONYM = ColumnAssignment("PSEUDONYM")
@@ -68,6 +75,30 @@ _NOT_IN_DB = frozenset({PlanAction.SCHEDULE_EXTERNAL, PlanAction.UNRESOLVED})
 _KEY_DELETE = frozenset(
     {PlanAction.DELETE_ROWS, PlanAction.DELETE_DERIVED_BY_KEY, PlanAction.INVALIDATE_CACHE}
 )
+
+
+@dataclass(frozen=True, slots=True)
+class _CascadeCheck:
+    constraint: str
+    child: TableRef
+    child_columns: tuple[str, ...]
+    parent_columns: tuple[str, ...]
+    expected: int
+
+
+def _cascade_checks(item: PlanItem) -> list[_CascadeCheck]:
+    out = []
+    for m in CASCADE_CHECK_RE.finditer(item.reason):
+        cols = tuple(c for c in m["cols"].split(",") if c)
+        pcols = tuple(c for c in m["pcols"].split(",") if c)
+        if not cols or len(cols) != len(pcols):
+            raise PlanError(
+                "malformed cascade check in plan item",
+                code="INVALID_PLAN",
+                details={"step_order": item.step_order},
+            )
+        out.append(_CascadeCheck(m["fk"], TableRef.parse(m["child"]), cols, pcols, int(m["n"])))
+    return out
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,6 +210,28 @@ class _Run:
         if item.expected_row_count is not None and actual != item.expected_row_count:
             raise RowCountMismatch(item.step_order, item.expected_row_count, actual)
 
+    def check_cascades(self, item: PlanItem) -> None:
+        """Policy §2(d): before deleting a parent batch, every CASCADE FK must reference exactly
+        the planned number of child rows. More rows means an unplanned cascade (e.g. a concurrent
+        insert, or a row the plan does not own); fewer means the data drifted."""
+        for chk in _cascade_checks(item):
+            if chk.parent_columns == item.key_columns:
+                values = list(item.record_keys)
+            else:
+                rows = self.writer.select_by_columns(
+                    item.table, item.key_columns, item.record_keys, chk.parent_columns
+                )
+                values = [
+                    tuple(r[c] for c in chk.parent_columns)
+                    for r in rows
+                    if all(r[c] is not None for c in chk.parent_columns)
+                ]
+            n = self.writer.count_by_columns(chk.child, chk.child_columns, values) if values else 0
+            if n != chk.expected:
+                err = RowCountMismatch(item.step_order, chk.expected, n)
+                err.details.update(cascade_check=chk.constraint, child_table=chk.child.qualified())
+                raise err
+
     def lock_all(self) -> None:
         for item in self.plan.items:
             if not _locks(item):
@@ -194,6 +247,8 @@ class _Run:
         w, a = self.writer, item.action
         if a in _NO_DML:
             return _Outcome(StepStatus.SKIPPED, None)
+        if a is PlanAction.DELETE_ROWS:
+            self.check_cascades(item)
         if a in _KEY_DELETE:
             n = w.delete_rows(item.table, item.key_columns, item.record_keys)
             self.check(item, n)

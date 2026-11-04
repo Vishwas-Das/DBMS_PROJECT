@@ -484,6 +484,8 @@ def discover(
     rg.add_root(start)
     marks: dict[TableRef, Traceability] = dict(affected or {})
     root_fks = [f for f in schema.fks if f.parent == root_t]
+    fetch_cols = sorted({c for f in root_fks for c in f.parent_cols} | set(root_cols))
+    subject_row = reader.fetch_columns(root_t, start.columns, subject, fetch_cols) or {}
     frontier = [start]
     while frontier:
         nxt: list[RecordKey] = []
@@ -513,7 +515,8 @@ def discover(
                     elif any(
                         f.child == e.target
                         and row[f.child_cols[0]] is not None
-                        and (row[f.child_cols[0]],) != subject
+                        and tuple(row[c] for c in f.child_cols)
+                        != tuple(subject_row[c] for c in f.parent_cols)
                         for f in root_fks
                     ):
                         role = RecordRole.SHARED
@@ -624,7 +627,14 @@ SEGMENT_SQL = (
 )
 
 
-def shop(*, shared_message: bool = True, with_artifacts: bool = True) -> Shop:
+def shop(
+    *, shared_message: bool = True, with_artifacts: bool = True, ticket_nullable: bool = False
+) -> Shop:
+    """Demo shop. Message 402 is written by customer 77 on customer 42's ticket (SHARED).
+
+    `ticket_nullable` makes ticket_message.ticket_id nullable (still ON DELETE CASCADE), so the
+    shared message can be detached instead of blocking the plan.
+    """
     s = Schema()
     s.table("customer", "id", "email", "name", "referrer_id", not_null=("email",))
     s.table("customer_address", "id", "customer_id", "street", not_null=("customer_id",))
@@ -648,7 +658,9 @@ def shop(*, shared_message: bool = True, with_artifacts: bool = True) -> Shop:
         "ticket_id",
         "author_customer_id",
         "body",
-        not_null=("ticket_id", "author_customer_id"),
+        not_null=("author_customer_id",)
+        if ticket_nullable
+        else ("ticket_id", "author_customer_id"),
     )
     s.table("marketing_event_log", "customer_id", "email", pk=())
     s.fk(

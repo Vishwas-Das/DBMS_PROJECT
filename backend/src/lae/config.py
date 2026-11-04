@@ -14,12 +14,13 @@ from lae.errors import ConfigurationError
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="LAE_", env_file=".env", extra="ignore")
 
-    database_url: str = "postgresql+psycopg://lae_owner:lae_owner@localhost:5433/lae"
+    database_url: str = "postgresql+psycopg://lae_owner:lae_owner_dev@localhost:5433/lae"
     reader_url: str | None = None
     executor_url: str | None = None
     target_schemas: list[str] = Field(default_factory=lambda: ["app"])
     hmac_key: SecretStr | None = None
     signing_key_path: Path | None = None
+    api_token: str | None = None  # X-LAE-Token for mutating API calls (local prototype auth)
     statement_timeout_ms: int = 30_000
     lock_timeout_ms: int = 5_000
 

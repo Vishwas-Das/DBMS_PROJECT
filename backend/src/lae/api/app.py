@@ -24,10 +24,12 @@ from lae.api.schemas import (
     ConflictAcknowledge,
     CustomerOut,
     DiscoveryOut,
+    EdgeStatusUpdate,
     ErasureRequestCreate,
     ErasureRequestOut,
     ErrorEnvelope,
     ExecutionOut,
+    GraphEdgeOut,
     HealthOut,
     LineageOut,
     PlanApprove,
@@ -203,6 +205,20 @@ def create_app(
     def discovery(request_id: UUID, s: Svc, actor: Actor) -> DiscoveryOut:
         return s.run_discovery(request_id, actor)
 
+    @r.get("/discovery/{request_id}", response_model=DiscoveryOut)
+    def latest_discovery(request_id: UUID, s: Svc) -> DiscoveryOut:
+        return s.latest_discovery(request_id)
+
+    @r.post("/lineage-edges/{edge_id}/status", response_model=GraphEdgeOut)
+    def set_edge_status(
+        edge_id: UUID, body: EdgeStatusUpdate, s: Svc, actor: Actor
+    ) -> GraphEdgeOut:
+        return s.set_edge_status(edge_id, body, actor)
+
+    @r.get("/executions", response_model=list[ExecutionOut])
+    def list_executions(s: Svc, request_id: UUID) -> list[ExecutionOut]:
+        return s.list_executions(request_id)
+
     @r.get("/lineage/schema", response_model=SchemaGraphOut)
     def schema_graph(s: Svc, level: Literal["TABLE", "COLUMN"] = "TABLE") -> SchemaGraphOut:
         return s.schema_graph(level)
@@ -231,7 +247,7 @@ def create_app(
         actor: Actor,
         body: ConflictAcknowledge | None = None,
     ) -> PlanOut:
-        return s.acknowledge_conflict(plan_id, conflict_id, actor)
+        return s.acknowledge_conflict(plan_id, conflict_id, actor, body.note if body else None)
 
     @r.post("/erasure-plans/{plan_id}/approve", response_model=PlanOut)
     def approve(plan_id: UUID, body: PlanApprove, s: Svc, actor: Actor) -> PlanOut:

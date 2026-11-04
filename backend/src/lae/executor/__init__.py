@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from lae.executor.executor import DEFINITION_TOKEN, execute_plan
+from lae.executor.executor import CASCADE_CHECK_RE, DEFINITION_TOKEN, execute_plan
 
-__all__ = ["DEFINITION_TOKEN", "execute_plan"]
+__all__ = ["CASCADE_CHECK_RE", "DEFINITION_TOKEN", "execute_plan"]

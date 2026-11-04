@@ -13,7 +13,9 @@ from lae.contracts.enums import OnDeleteAction
 from lae.contracts.types import RelationshipEdge
 
 __all__ = [
+    "CASCADE_CHECK_TOKEN",
     "DEFINITION_TOKEN",
+    "cascade_check",
     "definition_token",
     "edge_label",
     "edge_labels",
@@ -58,3 +60,21 @@ def edge_labels(edges: Iterable[RelationshipEdge]) -> str:
 
 def definition_token(definition_sql: str) -> str:
     return DEFINITION_TOKEN + hashlib.sha256(definition_sql.encode("utf-8")).hexdigest()
+
+
+CASCADE_CHECK_TOKEN = "cascade_check "  # noqa: S105 - not a secret
+"""Prefix of a DELETE_ROWS reason clause binding the number of child rows that an
+ON DELETE CASCADE FK must find right before the delete (policy §2(d), CR
+erasure-engine-engineer-1). Format::
+
+    cascade_check <constraint>: <schema.child>(<c1>,<c2>) <- (<p1>,<p2>) = <n>
+
+The executor parses it with the same grammar (lae.executor.executor.CASCADE_CHECK_RE)."""
+
+
+def cascade_check(e: RelationshipEdge, expected: int) -> str:
+    name = e.constraint_name or str(e.edge_id)
+    return (
+        f"{CASCADE_CHECK_TOKEN}{name}: {e.target.qualified()}({','.join(e.target_columns)}) "
+        f"<- ({','.join(e.source_columns)}) = {expected}"
+    )
