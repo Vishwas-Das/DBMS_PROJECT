@@ -10,10 +10,13 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function setup() {
+function setup(initialRuns: unknown[] = []) {
   const executeBodies: unknown[] = [];
+  // Server-side list of runs, newest first, as GET /api/executions returns it.
+  const runs: unknown[] = [...initialRuns];
   const f = installFetch((url, init) => {
     if (url === "/api/erasure-requests?limit=100") return json(200, []);
+    if (url === `/api/executions?request_id=${REQ}`) return json(200, runs);
     if (url === `/api/erasure-requests/${REQ}`)
       return json(200, {
         id: REQ,
@@ -48,8 +51,8 @@ function setup() {
     if (url === `/api/erasure-plans/${PLAN}/execute` && init?.method === "POST") {
       const body = JSON.parse(String(init.body)) as { mode: string };
       executeBodies.push(body);
-      return json(200, {
-        id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      const run = {
+        id: `aaaaaaaa-aaaa-aaaa-aaaa-${String(executeBodies.length).padStart(12, "0")}`,
         plan_id: PLAN,
         mode: body.mode,
         status: body.mode === "LIVE" ? "COMMITTED" : "ROLLED_BACK",
@@ -64,7 +67,9 @@ function setup() {
         verification: null,
         evidence_id: null,
         timings_ms: {},
-      });
+      };
+      runs.unshift(run);
+      return json(200, run);
     }
     return undefined;
   });
@@ -73,6 +78,33 @@ function setup() {
 }
 
 describe("ExecutionPage", () => {
+  it("lists past runs from GET /api/executions and marks runs of earlier plan versions", async () => {
+    setup([
+      {
+        id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        plan_id: "99999999-9999-9999-9999-999999999999",
+        mode: "DRY_RUN",
+        status: "FAILED",
+        started_at: "2026-11-03T10:00:00Z",
+        finished_at: null,
+        steps: [],
+        error: { code: "STEP_ROWCOUNT_MISMATCH", message: "step 2 affected 3 rows", details: {} },
+        verification: null,
+        evidence_id: null,
+        timings_ms: {},
+      },
+    ]);
+    expect(await screen.findByText("FAILED")).toBeInTheDocument();
+    expect(screen.getByText(/earlier plan version/)).toBeInTheDocument();
+    expect(screen.getByText("STEP_ROWCOUNT_MISMATCH")).toBeInTheDocument();
+    expect(screen.queryByText(/browser session/)).toBeNull();
+  });
+
+  it("shows an empty state when the server has no runs", async () => {
+    setup();
+    expect(await screen.findByText("No executions yet")).toBeInTheDocument();
+  });
+
   it("runs a dry run directly and summarises steps", async () => {
     const { executeBodies } = setup();
     fireEvent.click(await screen.findByRole("button", { name: "Dry run" }));

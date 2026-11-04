@@ -24,6 +24,11 @@ export function shortHash(hash: string | null | undefined, n = 12): string {
   return hash.length <= n ? hash : `${hash.slice(0, n)}...`;
 }
 
+/** Display form of a graph node id: drops the server's "t:" / "c:" kind prefix. */
+export function nodeLabel(id: string): string {
+  return id.replace(/^[tc]:/, "");
+}
+
 export function shortId(id: string | null | undefined): string {
   if (!id) return "-";
   return id.length > 8 ? id.slice(0, 8) : id;
@@ -169,27 +174,43 @@ export function metricBars(runs: readonly BenchmarkRunOut[], key: string): Bar[]
   return bars;
 }
 
-/** Residual hit rows: shows the known keys if present, otherwise null fields. */
-export interface ResidualRow {
-  table: string | null;
-  column: string | null;
-  count: number | null;
-  raw: Record<string, unknown>;
+// ------------------------------------------------------------------ edge evidence
+
+/** Display summary of the server's `evidence` object of an (inferred) edge. Nothing is derived. */
+export interface EvidenceSummary {
+  /** The server's evidence method, e.g. "residual_scan" or "name_pattern+sampled_containment". */
+  method: string | null;
+  /** Human label for the known methods; the raw method otherwise. */
+  methodLabel: string;
+  hitCount: number | null;
+  contained: number | null;
+  sampled: number | null;
+  note: string | null;
+}
+
+const METHOD_LABEL: Record<string, string> = {
+  residual_scan: "Residual scan after a LIVE erasure (value match, no values stored)",
+  "name_pattern+sampled_containment": "Column name pattern + sampled value containment",
+  pg_constraint: "Declared FK constraint (pg_constraint)",
+};
+
+function num(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
 }
 
 function str(v: unknown): string | null {
-  return typeof v === "string" ? v : null;
+  return typeof v === "string" && v !== "" ? v : null;
 }
 
-export function residualRow(hit: Record<string, unknown>): ResidualRow {
-  const schema = str(hit.schema_name) ?? str(hit.schema);
-  const table = str(hit.table_name) ?? str(hit.table);
-  const fq = table && schema && !table.includes(".") ? `${schema}.${table}` : table;
-  const countRaw = hit.count ?? hit.hits ?? hit.row_count;
+export function evidenceSummary(evidence: Record<string, unknown> | null | undefined): EvidenceSummary {
+  const e = evidence ?? {};
+  const method = str(e.evidence);
   return {
-    table: fq,
-    column: str(hit.column_name) ?? str(hit.column),
-    count: typeof countRaw === "number" ? countRaw : null,
-    raw: hit,
+    method,
+    methodLabel: method ? (METHOD_LABEL[method] ?? method) : "not stated by the server",
+    hitCount: num(e.hit_count),
+    contained: num(e.contained),
+    sampled: num(e.sampled),
+    note: str(e.note),
   };
 }

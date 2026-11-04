@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
+import { actorFor } from "../api/client";
+import { getCredentials, subscribeCredentials } from "../api/credentials";
+import { requestOpenSettings } from "../components/SettingsDialog";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   useExecutePlan,
-  useExecutionResults,
+  useExecutions,
   useGeneratePlan,
   usePlan,
   useRequest,
@@ -50,16 +53,38 @@ function StepSummaryView({ ex }: { ex: ExecutionOut }) {
   );
 }
 
-function ExecutionResult({ ex }: { ex: ExecutionOut }) {
+export function ExecutionResult({
+  ex,
+  currentPlanId,
+  defaultOpen = true,
+}: {
+  ex: ExecutionOut;
+  currentPlanId?: string | null;
+  defaultOpen?: boolean;
+}) {
   const timings = Object.entries(ex.timings_ms ?? {});
+  const otherPlan = currentPlanId !== undefined && currentPlanId !== null && ex.plan_id !== currentPlanId;
   return (
-    <section className="card space-y-3" aria-label={`Execution ${ex.id}`}>
-      <h3 className="font-semibold">
-        {ex.mode === "LIVE" ? "LIVE execution" : "Dry run"} <StatusPill status={ex.status} />
-      </h3>
+    <details
+      className="card space-y-3"
+      aria-label={`Execution ${ex.id}`}
+      open={defaultOpen}
+    >
+      <summary className="cursor-pointer font-semibold">
+        {ex.mode === "LIVE" ? "LIVE execution" : "Dry run"} <StatusPill status={ex.status} />{" "}
+        <span className="text-sm font-normal text-slate-600">
+          started {formatDateTime(ex.started_at)}
+          {otherPlan ? " (earlier plan version)" : ""}
+        </span>
+      </summary>
       <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
         <dt className="text-slate-500">Execution id</dt>
-        <dd className="font-mono text-xs">{ex.id}</dd>
+        <dd className="font-mono text-xs break-all">{ex.id}</dd>
+        <dt className="text-slate-500">Plan id</dt>
+        <dd className="font-mono text-xs break-all">
+          {ex.plan_id}
+          {otherPlan ? " (not the current plan)" : ""}
+        </dd>
         <dt className="text-slate-500">Started / finished</dt>
         <dd>
           {formatDateTime(ex.started_at)} / {formatDateTime(ex.finished_at)}
@@ -67,7 +92,7 @@ function ExecutionResult({ ex }: { ex: ExecutionOut }) {
         {ex.evidence_id ? (
           <>
             <dt className="text-slate-500">Evidence id</dt>
-            <dd className="font-mono text-xs">{ex.evidence_id}</dd>
+            <dd className="font-mono text-xs break-all">{ex.evidence_id}</dd>
           </>
         ) : null}
         {timings.length > 0 ? (
@@ -91,6 +116,7 @@ function ExecutionResult({ ex }: { ex: ExecutionOut }) {
       {ex.steps.length === 0 ? (
         <EmptyState title="The server returned no step results" />
       ) : (
+        <div className="overflow-x-auto">
         <table className="table" aria-label="Step results">
           <thead>
             <tr>
@@ -123,6 +149,7 @@ function ExecutionResult({ ex }: { ex: ExecutionOut }) {
             ))}
           </tbody>
         </table>
+        </div>
       )}
       {ex.verification ? (
         <div className="text-sm">
@@ -131,7 +158,29 @@ function ExecutionResult({ ex }: { ex: ExecutionOut }) {
           .{" "}
         </div>
       ) : null}
-    </section>
+    </details>
+  );
+}
+
+/** Which X-LAE-Actor this browser sends for execute calls, and the four-eyes rule. */
+function ExecutorNote({ approvedBy }: { approvedBy: string | null }) {
+  const creds = useSyncExternalStore(subscribeCredentials, getCredentials);
+  const executor = actorFor(creds, "executor");
+  return (
+    <p className="text-sm" aria-label="Executor identity">
+      Executing as <strong>{executor ?? "(no name set: server default actor)"}</strong>.{" "}
+      <span className="text-slate-600">
+        Four-eyes rule: the server rejects a LIVE execution by the plan&apos;s approver.
+      </span>{" "}
+      {approvedBy !== null && executor === approvedBy ? (
+        <span className="text-amber-800">
+          <span aria-hidden="true">! </span>This name equals the approver.{" "}
+        </span>
+      ) : null}
+      <button type="button" className="link" onClick={requestOpenSettings}>
+        Change executor name
+      </button>
+    </p>
   );
 }
 
@@ -139,7 +188,7 @@ function ExecutePanel({ plan, requestId }: { plan: PlanOut; requestId: string })
   const exec = useExecutePlan(plan.id, requestId);
   const replan = useGeneratePlan(requestId);
   const nav = useNavigate();
-  const results = useExecutionResults(plan.id);
+  const runs = useExecutions(requestId);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [ack, setAck] = useState(false);
 
@@ -161,6 +210,7 @@ function ExecutePanel({ plan, requestId }: { plan: PlanOut; requestId: string })
             ? `${plan.approved_by ?? "unknown"} at ${formatDateTime(plan.approved_at)}`
             : "not approved (the server will refuse to execute)"}
         </p>
+        <ExecutorNote approvedBy={plan.approved_by ?? null} />
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -226,20 +276,32 @@ function ExecutePanel({ plan, requestId }: { plan: PlanOut; requestId: string })
 
       <section className="space-y-3" aria-labelledby="results-h">
         <h2 id="results-h" className="section-title">
-          Results from this session
+          Execution runs for this request (newest first)
         </h2>
-        {results.length === 0 ? (
-          <EmptyState title="No executions in this browser session">
-            The API has no endpoint that lists past executions, so only results returned to this
-            session are shown. Verification results persist: see{" "}
-            <Link className="link" to={`/verification/${requestId}`}>
-              Verification &amp; Audit
-            </Link>
-            .
-          </EmptyState>
-        ) : (
-          [...results].reverse().map((r) => <ExecutionResult key={r.id} ex={r} />)
-        )}
+        <QueryState query={runs} errorTitle="Could not load past executions">
+          {(list) =>
+            list.length === 0 ? (
+              <EmptyState title="No executions yet">
+                Start a dry run above. Verification results are on the{" "}
+                <Link className="link" to={`/verification/${requestId}`}>
+                  Verification &amp; Audit
+                </Link>{" "}
+                page.
+              </EmptyState>
+            ) : (
+              <>
+                {list.map((r, i) => (
+                  <ExecutionResult
+                    key={r.id}
+                    ex={r}
+                    currentPlanId={plan.id}
+                    defaultOpen={i === 0}
+                  />
+                ))}
+              </>
+            )
+          }
+        </QueryState>
       </section>
     </div>
   );

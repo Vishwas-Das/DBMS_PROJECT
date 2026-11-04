@@ -265,8 +265,8 @@ class LaeServices:
         e = P.set_edge_status(self.rt, edge_id, EdgeStatus(body.status), actor)
         return GraphEdgeOut(
             id=e.edge_id,
-            source=f"t:{e.source.qualified()}",
-            target=f"t:{e.target.qualified()}",
+            source=_node_id(e.source.qualified(), e.source_columns, e.level),
+            target=_node_id(e.target.qualified(), e.target_columns, e.level),
             level="TABLE" if e.level is LineageLevel.TABLE else "COLUMN",
             origin=e.origin,
             transform=e.transform,
@@ -487,6 +487,7 @@ class LaeServices:
 
     def list_executions(self, request_id: UUID) -> list[ExecutionOut]:
         with session_scope(self.rt.reader, read_only=True) as s:
+            RequestRepo(s).get(request_id)  # 404 for an unknown request
             out: list[ExecutionOut] = []
             for p in PlanRepo(s).list_for_request(request_id):
                 out += [self._execution_out(s, r) for r in ExecutionRepo(s).list_for_plan(p.id)]
@@ -666,6 +667,13 @@ class LaeServices:
                 )
                 for r in BenchmarkRepo(s).list_runs(scenario)
             ]
+
+
+def _node_id(table: str, cols: tuple[str, ...], level: LineageLevel) -> str:
+    """Graph node id as used by LineageGraph.to_node_link (t:table, or c:table.column)."""
+    if level is LineageLevel.COLUMN and len(cols) == 1:
+        return f"c:{table}.{cols[0]}"
+    return f"t:{table}"
 
 
 def _event_uuid(e: AuditEventRecord) -> UUID:

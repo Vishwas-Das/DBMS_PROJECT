@@ -1,4 +1,7 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
+import { ErrorState } from "../components/States";
+import { OPEN_SETTINGS_EVENT } from "../components/SettingsDialog";
+import { ApiError } from "../api/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { installFetch, json, renderWithProviders } from "../test/render";
 import { BenchmarksPage } from "./BenchmarksPage";
@@ -30,6 +33,33 @@ describe("error states", () => {
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("CONFIGURATION");
     expect(alert).toHaveTextContent("HTTP 500");
+  });
+});
+
+describe("auth and four-eyes errors", () => {
+  it("a 401 tells the operator to enter the token and opens Settings", async () => {
+    installFetch(() =>
+      json(401, { error: { code: "UNAUTHORIZED", message: "missing or invalid X-LAE-Token", details: {} } }),
+    );
+    const opened = vi.fn();
+    window.addEventListener(OPEN_SETTINGS_EVENT, opened);
+    renderWithProviders(<BenchmarksPage />);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("UNAUTHORIZED");
+    expect(alert).toHaveTextContent(/Enter a valid API token in Settings/);
+    fireEvent.click(screen.getByRole("button", { name: "Open Settings" }));
+    expect(opened).toHaveBeenCalledTimes(1);
+    window.removeEventListener(OPEN_SETTINGS_EVENT, opened);
+  });
+
+  it("explains the separation-of-duties refusal", () => {
+    renderWithProviders(
+      <ErrorState
+        error={new ApiError(409, "INVALID_STATE", "separation of duties: approver may not execute")}
+      />,
+    );
+    expect(screen.getByText(/Four-eyes rule/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Settings" })).toBeInTheDocument();
   });
 });
 

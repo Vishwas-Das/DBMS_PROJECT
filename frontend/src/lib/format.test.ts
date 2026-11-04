@@ -7,7 +7,8 @@ import {
   formatInt,
   metricBars,
   numericMetricKeys,
-  residualRow,
+  evidenceSummary,
+  nodeLabel,
   shortHash,
   shortId,
   summarizeSteps,
@@ -110,16 +111,30 @@ describe("benchmark helpers", () => {
   });
 });
 
-describe("residualRow", () => {
-  it("reads known key variants", () => {
-    expect(residualRow({ schema_name: "app", table_name: "document", column_name: "body", count: 2 })).toMatchObject({
-      table: "app.document",
-      column: "body",
-      count: 2,
-    });
-    expect(residualRow({ table: "app.x", column: "c", hits: 1 })).toMatchObject({ table: "app.x", count: 1 });
+describe("evidenceSummary", () => {
+  it("reads residual_scan suggestions with their hit_count", () => {
+    expect(
+      evidenceSummary({ evidence: "residual_scan", hit_count: 3, note: "value match" }),
+    ).toMatchObject({ method: "residual_scan", hitCount: 3, note: "value match" });
   });
-  it("returns nulls for unknown shapes", () => {
-    expect(residualRow({ foo: 1 })).toMatchObject({ table: null, column: null, count: null });
+  it("reads sampled containment counts", () => {
+    const s = evidenceSummary({ evidence: "name_pattern+sampled_containment", contained: 951, sampled: 953 });
+    expect(s).toMatchObject({ contained: 951, sampled: 953, hitCount: null });
+    expect(s.methodLabel).toMatch(/sampled/);
+  });
+  it("returns nulls for missing or non-numeric fields and keeps unknown methods verbatim", () => {
+    expect(evidenceSummary(null)).toMatchObject({ method: null, hitCount: null, note: null });
+    expect(evidenceSummary({ evidence: "x", hit_count: "3" })).toMatchObject({
+      methodLabel: "x",
+      hitCount: null,
+    });
+  });
+});
+
+describe("nodeLabel", () => {
+  it("drops only the t:/c: kind prefix", () => {
+    expect(nodeLabel("t:app.customer")).toBe("app.customer");
+    expect(nodeLabel("c:app.customer.email")).toBe("app.customer.email");
+    expect(nodeLabel("app.x")).toBe("app.x");
   });
 });

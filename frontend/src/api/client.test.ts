@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { ApiError, CLIENT_ERROR_CODES, buildUrl, createClient, parseErrorPayload } from "./client";
+import {
+  ApiError,
+  CLIENT_ERROR_CODES,
+  actorFor,
+  buildUrl,
+  createClient,
+  parseErrorPayload,
+} from "./client";
 import { getCredentials, setCredentials } from "./credentials";
 
 function jsonResponse(status: number, body: unknown): Response {
@@ -57,15 +64,38 @@ describe("buildUrl", () => {
 });
 
 describe("client requests", () => {
-  it("returns parsed JSON on success and sends no auth headers on GET", async () => {
+  it("returns parsed JSON on success and sends the token on GET too", async () => {
     setCredentials({ token: "t0k3n", actor: "alice" });
     const f = mockFetch(jsonResponse(200, { status: "ok" }));
     const c = createClient({ fetchImpl: f });
     await expect(c.get("/api/health")).resolves.toEqual({ status: "ok" });
     expect(f.mock.calls[0]?.[0]).toBe("/api/health");
     expect(f.mock.calls[0]?.[1]?.method).toBe("GET");
-    expect(headersOf(f)["X-LAE-Token"]).toBeUndefined();
-    expect(headersOf(f)["X-LAE-Actor"]).toBeUndefined();
+    expect(headersOf(f)["X-LAE-Token"]).toBe("t0k3n");
+    expect(headersOf(f)["X-LAE-Actor"]).toBe("alice");
+    expect(headersOf(f)["Content-Type"]).toBeUndefined();
+  });
+
+  it("sends the executor name as X-LAE-Actor for execute calls (four-eyes)", async () => {
+    setCredentials({ token: "t0k3n", actor: "alice", executor: "bob" });
+    const f = mockFetch(() => Promise.resolve(jsonResponse(200, {})));
+    const c = createClient({ fetchImpl: f });
+    await c.post("/api/erasure-plans/{plan_id}/execute", {
+      path: { plan_id: "p1" },
+      body: { mode: "LIVE" },
+      as: "executor",
+    });
+    expect(headersOf(f)["X-LAE-Actor"]).toBe("bob");
+    await c.post("/api/erasure-plans/{plan_id}/approve", {
+      path: { plan_id: "p1" },
+      body: { plan_hash: "h" },
+    });
+    expect(headersOf(f, 1)["X-LAE-Actor"]).toBe("alice");
+  });
+
+  it("falls back to the default actor when no executor name is set", () => {
+    expect(actorFor({ token: null, actor: "alice", executor: null }, "executor")).toBe("alice");
+    expect(actorFor({ token: null, actor: null, executor: "bob" })).toBeNull();
   });
 
   it("injects X-LAE-Token and X-LAE-Actor on mutations", async () => {
@@ -141,7 +171,7 @@ describe("client requests", () => {
 describe("credentials", () => {
   it("are kept in sessionStorage only", () => {
     setCredentials({ token: " abc ", actor: "" });
-    expect(getCredentials()).toEqual({ token: "abc", actor: null });
+    expect(getCredentials()).toEqual({ token: "abc", actor: null, executor: null });
     expect(window.sessionStorage.getItem("lae.apiToken")).toBe("abc");
     expect(window.localStorage.getItem("lae.apiToken")).toBeNull();
   });

@@ -128,6 +128,8 @@ function nodeTitle(n: GraphNodeOut): { title: string; subtitle: string } {
 export interface SchemaFlowOptions {
   /** Hide edges whose status is REJECTED (default true). SUGGESTED edges are always shown, styled. */
   hideRejected?: boolean;
+  /** Hide nodes that no visible edge touches (default false). Used for the large column view. */
+  hideIsolated?: boolean;
 }
 
 export function schemaGraphToFlow(
@@ -136,7 +138,12 @@ export function schemaGraphToFlow(
 ): { nodes: SchemaFlowNode[]; edges: SchemaFlowEdge[] } {
   const hideRejected = opts.hideRejected ?? true;
   const known = new Set(graph.nodes.map((n) => n.id));
-  const nodes: SchemaFlowNode[] = [...graph.nodes].sort(byId).map((n) => {
+  const visibleEdges = graph.edges
+    .filter((e) => known.has(e.source) && known.has(e.target))
+    .filter((e) => !(hideRejected && e.status === "REJECTED"));
+  const touched = new Set(visibleEdges.flatMap((e) => [e.source, e.target]));
+  const keepNode = (n: GraphNodeOut) => !opts.hideIsolated || touched.has(n.id);
+  const nodes: SchemaFlowNode[] = [...graph.nodes].filter(keepNode).sort(byId).map((n) => {
     const { title, subtitle } = nodeTitle(n);
     const size = n.kind === "column" ? NODE_SIZE.column : NODE_SIZE.table;
     return {
@@ -156,9 +163,7 @@ export function schemaGraphToFlow(
       },
     };
   });
-  const edges: SchemaFlowEdge[] = [...graph.edges]
-    .filter((e) => known.has(e.source) && known.has(e.target))
-    .filter((e) => !(hideRejected && e.status === "REJECTED"))
+  const edges: SchemaFlowEdge[] = [...visibleEdges]
     .sort(byId)
     .map((e) => {
       const visual = edgeVisual(e.origin, e.traceability, e.status);
@@ -213,6 +218,26 @@ export function recordGraphToFlow(lineage: LineageOut): {
     }))
     .sort(byId);
   return { nodes, edges };
+}
+
+/** Number of nodes that no non-rejected edge touches (display only). */
+export function isolatedNodeCount(graph: SchemaGraphOut): number {
+  const all = schemaGraphToFlow(graph).nodes.length;
+  return all - schemaGraphToFlow(graph, { hideIsolated: true }).nodes.length;
+}
+
+/** INFERRED edges for human review, SUGGESTED first, then by source/target/id. */
+export function inferredEdgesForReview(graph: SchemaGraphOut): GraphEdgeOut[] {
+  const rank = (e: GraphEdgeOut) => (e.status === "SUGGESTED" ? 0 : e.status === "CONFIRMED" ? 1 : 2);
+  return graph.edges
+    .filter((e) => e.origin === "INFERRED")
+    .sort(
+      (a, b) =>
+        rank(a) - rank(b) ||
+        a.source.localeCompare(b.source) ||
+        a.target.localeCompare(b.target) ||
+        (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+    );
 }
 
 /** Counts records per role (display only). */

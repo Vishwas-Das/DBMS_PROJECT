@@ -1,3 +1,4 @@
+import { isApiError } from "../api/client";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useCreateRequest, useCustomers, useRequests } from "../api/hooks";
@@ -140,6 +141,12 @@ function CreateRequestForm() {
         </button>
       </form>
       {create.error ? <ErrorState error={create.error} title="Could not create request" /> : null}
+      {isApiError(create.error) && create.error.status === 409 ? (
+        <p className="text-sm text-slate-700">
+          The server refused a second open request for this subject. Continue the existing request
+          from the &quot;Open request&quot; link in the search results.
+        </p>
+      ) : null}
       {create.data ? (
         <p role="status" className="text-sm text-green-800">
           Created request <code>{create.data.id}</code> (status {create.data.status}).{" "}

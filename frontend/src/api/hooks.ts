@@ -5,7 +5,6 @@
  */
 import {
   useMutation,
-  useMutationState,
   useQuery,
   useQueryClient,
   type QueryClient,
@@ -13,9 +12,9 @@ import {
 import { api, ApiError } from "./client";
 import type {
   ConflictAcknowledge,
+  EdgeStatusUpdate,
   ErasureRequestCreate,
   ExecutionMode,
-  ExecutionOut,
   GraphLevel,
   PlanGenerate,
 } from "./types";
@@ -30,6 +29,8 @@ export const qk = {
   lineageAll: (requestId: string) => ["lineage", requestId] as const,
   schemaGraph: (level: GraphLevel) => ["lineage-schema", level] as const,
   plan: (planId: string) => ["erasure-plans", planId] as const,
+  discovery: (requestId: string) => ["discovery", requestId] as const,
+  executions: (requestId: string) => ["executions", requestId] as const,
   verification: (requestId: string) => ["verification", requestId] as const,
   auditEvents: (afterSeq: number, limit: number) => ["audit-events", afterSeq, limit] as const,
   auditEventsAll: ["audit-events"] as const,
@@ -38,7 +39,7 @@ export const qk = {
 };
 
 export const mk = {
-  discovery: (requestId: string) => ["discovery", requestId] as const,
+  discovery: (requestId: string) => ["run-discovery", requestId] as const,
   execute: (planId: string) => ["execute", planId] as const,
   verifyChain: ["verify-chain"] as const,
 };
@@ -123,6 +124,26 @@ export function usePlan(planId: string | null | undefined) {
   });
 }
 
+/** Latest discovery result for a request (404 NOT_FOUND when discovery has not run yet). */
+export function useDiscovery(requestId: string | undefined) {
+  return useQuery({
+    queryKey: qk.discovery(requestId ?? ""),
+    queryFn: ({ signal }) =>
+      api.get("/api/discovery/{request_id}", { path: { request_id: requestId ?? "" }, signal }),
+    enabled: Boolean(requestId),
+  });
+}
+
+/** Past execution runs (dry runs and LIVE) of a request, in server order. */
+export function useExecutions(requestId: string | undefined) {
+  return useQuery({
+    queryKey: qk.executions(requestId ?? ""),
+    queryFn: ({ signal }) =>
+      api.get("/api/executions", { query: { request_id: requestId ?? "" }, signal }),
+    enabled: Boolean(requestId),
+  });
+}
+
 export function useVerification(requestId: string | undefined) {
   return useQuery({
     queryKey: qk.verification(requestId ?? ""),
@@ -189,12 +210,14 @@ export function useRunDiscovery(requestId: string) {
     mutationKey: mk.discovery(requestId),
     mutationFn: () =>
       api.post("/api/discovery/{request_id}", { path: { request_id: requestId } }),
-    onSuccess: () =>
-      Promise.all([
+    onSuccess: (d) => {
+      qc.setQueryData(qk.discovery(requestId), d);
+      return Promise.all([
         invalidateRequest(qc, requestId),
         qc.invalidateQueries({ queryKey: qk.lineageAll(requestId) }),
         qc.invalidateQueries({ queryKey: ["lineage-schema"] }),
-      ]),
+      ]);
+    },
   });
 }
 
@@ -262,27 +285,43 @@ export function useExecutePlan(planId: string, requestId: string) {
       api.post("/api/erasure-plans/{plan_id}/execute", {
         path: { plan_id: planId },
         body: { mode },
+        as: "executor",
       }),
     onSettled: () =>
       Promise.all([
         qc.invalidateQueries({ queryKey: qk.plan(planId) }),
         invalidateRequest(qc, requestId),
+        qc.invalidateQueries({ queryKey: qk.executions(requestId) }),
         qc.invalidateQueries({ queryKey: qk.verification(requestId) }),
         qc.invalidateQueries({ queryKey: qk.audit(requestId) }),
         qc.invalidateQueries({ queryKey: qk.auditEventsAll }),
         qc.invalidateQueries({ queryKey: qk.health }),
+        // LIVE runs feed residual-scan hits back as SUGGESTED edges.
+        qc.invalidateQueries({ queryKey: ["lineage"] }),
+        qc.invalidateQueries({ queryKey: ["lineage-schema"] }),
       ]),
   });
 }
 
 /**
- * The contract has no GET for past executions, so the monitor shows the results of execute
- * calls made in this browser session (TanStack mutation cache). See CR frontend-engineer-1.
+ * Human decision on an INFERRED (SUGGESTED) lineage edge. The server only changes the status;
+ * confirmed edges are traversed by the next discovery / plan, the current plan is unchanged.
  */
-export function useExecutionResults(planId: string | null | undefined): ExecutionOut[] {
-  return useMutationState({
-    filters: { mutationKey: mk.execute(planId ?? ""), status: "success" },
-    select: (m) => m.state.data as ExecutionOut,
+export function useSetEdgeStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { edgeId: string; body: EdgeStatusUpdate }) =>
+      api.post("/api/lineage-edges/{edge_id}/status", {
+        path: { edge_id: v.edgeId },
+        body: v.body,
+      }),
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: ["lineage"] }),
+        qc.invalidateQueries({ queryKey: ["lineage-schema"] }),
+        qc.invalidateQueries({ queryKey: qk.stats }),
+        qc.invalidateQueries({ queryKey: qk.auditEventsAll }),
+      ]),
   });
 }
 
@@ -297,6 +336,8 @@ export function useRunVerification(requestId: string) {
         invalidateRequest(qc, requestId),
         qc.invalidateQueries({ queryKey: qk.audit(requestId) }),
         qc.invalidateQueries({ queryKey: qk.auditEventsAll }),
+        qc.invalidateQueries({ queryKey: ["lineage"] }),
+        qc.invalidateQueries({ queryKey: ["lineage-schema"] }),
       ]);
     },
   });

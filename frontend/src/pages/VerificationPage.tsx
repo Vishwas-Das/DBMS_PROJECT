@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import {
   useAuditEvents,
@@ -25,7 +25,6 @@ import {
   formatDuration,
   formatInt,
   prettyJson,
-  residualRow,
   shortHash,
 } from "../lib/format";
 
@@ -120,27 +119,30 @@ export function VerificationSummary({ v }: { v: VerificationOut }) {
             <tr>
               <th scope="col">Table</th>
               <th scope="col">Column</th>
-              <th scope="col">Count</th>
-              <th scope="col">Raw</th>
+              <th scope="col">Matching rows</th>
             </tr>
           </thead>
           <tbody>
-            {v.residual_hits.map((h, i) => {
-              const r = residualRow(h);
-              return (
-                <tr key={i}>
-                  <td className="font-mono text-xs">{r.table ?? "-"}</td>
-                  <td className="font-mono text-xs">{r.column ?? "-"}</td>
-                  <td>{formatInt(r.count)}</td>
-                  <td>
-                    <pre className="text-[11px]">{prettyJson(r.raw)}</pre>
-                  </td>
-                </tr>
-              );
-            })}
+            {v.residual_hits.map((h) => (
+              <tr key={`${h.table}.${h.column}`}>
+                <td className="font-mono text-xs">{h.table}</td>
+                <td className="font-mono text-xs">{h.column}</td>
+                <td>{formatInt(h.count)}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       )}
+      {v.residual_hits.length > 0 ? (
+        <p className="text-sm text-slate-600">
+          The residual scan reports counts only, never values. Each hit is fed back into lineage as
+          a SUGGESTED edge; review it in the{" "}
+          <Link className="link" to="/lineage">
+            Lineage Explorer
+          </Link>
+          .
+        </p>
+      ) : null}
     </section>
   );
 }

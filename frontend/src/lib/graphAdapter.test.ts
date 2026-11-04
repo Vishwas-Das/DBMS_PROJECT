@@ -6,6 +6,8 @@ import {
   countByRole,
   edgeVisual,
   indexEdges,
+  inferredEdgesForReview,
+  isolatedNodeCount,
   layoutGraph,
   recordGraphToFlow,
   schemaGraphToFlow,
@@ -118,6 +120,34 @@ describe("schemaGraphToFlow", () => {
     const before = JSON.stringify(graph);
     schemaGraphToFlow(graph);
     expect(JSON.stringify(graph)).toBe(before);
+  });
+});
+
+describe("hideIsolated / review helpers", () => {
+  const withLonely: SchemaGraphOut = { ...graph, nodes: [...graph.nodes, node("app.lonely")] };
+
+  it("keeps every node by default and drops untouched nodes with hideIsolated", () => {
+    expect(schemaGraphToFlow(withLonely).nodes.map((n) => n.id)).toContain("app.lonely");
+    const ids = schemaGraphToFlow(withLonely, { hideIsolated: true }).nodes.map((n) => n.id);
+    expect(ids).not.toContain("app.lonely");
+    expect(ids).toEqual(["app.customer", "app.order", "app.order_summary"]);
+    expect(isolatedNodeCount(withLonely)).toBe(1);
+  });
+
+  it("a node touched only by a REJECTED edge counts as isolated", () => {
+    const g: SchemaGraphOut = {
+      ...graph,
+      nodes: [node("app.a"), node("app.b")],
+      edges: [edge("r", "app.a", "app.b", { origin: "INFERRED", status: "REJECTED" })],
+    };
+    expect(isolatedNodeCount(g)).toBe(2);
+  });
+
+  it("lists only INFERRED edges, SUGGESTED first", () => {
+    expect(inferredEdgesForReview(graph).map((e) => [e.id, e.status])).toEqual([
+      ["e4", "SUGGESTED"],
+      ["e5", "REJECTED"],
+    ]);
   });
 });
 

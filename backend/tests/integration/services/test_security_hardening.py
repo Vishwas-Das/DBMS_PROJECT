@@ -262,3 +262,50 @@ def test_schema_graph_get_never_creates_a_snapshot(env: dict[str, Any]) -> None:
     assert r.status_code in (200, 404)
     if n0 == 0:
         assert r.status_code == 404
+
+
+def test_shared_name_does_not_cause_false_residual_failure(env: dict[str, Any]) -> None:
+    """Frontend live run: a different customer with the same name made a correct erasure FAIL.
+    Ambiguous (non-unique) probes are now excluded at planning time; unique ones still work."""
+    c, engine, rt, truth = env["client"], env["engine"], env["rt"], env["truth"]
+    from lae.db.repositories import ArtifactRepo
+
+    with session_scope(rt.owner) as s:
+        ext = ArtifactRepo(s).get_by_name("crm_export_files")
+        assert ext is not None
+        ArtifactRepo(s).deactivate(ext.definition.artifact_id)
+    try:
+        subject = _clean_subject(truth)
+        other = next(k for k in sorted(truth.subjects) if k != subject)
+        with engine.begin() as conn:  # a namesake: same full_name, different person
+            conn.execute(
+                sa.text(
+                    "UPDATE app.customer SET full_name = (SELECT full_name FROM app.customer "
+                    "WHERE id = :s) WHERE id = :o"
+                ),
+                {"s": subject, "o": other},
+            )
+        rid, plan = _plan(c, subject)
+        c.post(
+            f"/api/erasure-plans/{plan['id']}/approve",
+            json={"plan_hash": plan["plan_hash"]},
+            headers=AP,
+        )
+        ex = c.post(f"/api/erasure-plans/{plan['id']}/execute", json={"mode": "LIVE"})
+        assert ex.status_code == 200, ex.text
+        v = c.get(f"/api/verification/{rid}").json()
+        assert v["residual_hits"] == [], v["residual_hits"]
+        assert v["outcome"] == "VERIFIED"
+        events = c.get(f"/api/audit/{rid}").json()["events"]
+        created = next(e for e in events if e["event_type"] == "PLAN_CREATED")
+        assert created["payload"]["ambiguous_probes_excluded"] >= 1
+        with engine.connect() as conn:  # the namesake is untouched
+            assert (
+                conn.execute(
+                    sa.text("SELECT count(*) FROM app.customer WHERE id = :o"), {"o": other}
+                ).scalar_one()
+                == 1
+            )
+    finally:
+        with session_scope(rt.owner) as s:
+            ArtifactRepo(s).update(ext.definition, is_active=True)

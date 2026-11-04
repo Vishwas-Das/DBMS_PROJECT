@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import {
   useAcknowledgeConflict,
   useApprovePlan,
+  useDiscovery,
   useGeneratePlan,
   useLineage,
   usePlan,
@@ -26,8 +27,10 @@ import {
 } from "../components/Badges";
 import { EdgeEvidencePanel } from "../components/EdgeEvidencePanel";
 import { HashBadge } from "../components/HashBadge";
+import { LongText } from "../components/LongText";
 import { RequestPicker } from "../components/RequestPicker";
 import { EmptyState, ErrorState, Loading, QueryState } from "../components/States";
+import { isApiError } from "../api/client";
 import {
   CATEGORY_LABEL,
   ORIGIN_LABEL,
@@ -36,6 +39,7 @@ import {
   formatDateTime,
   formatDuration,
   formatInt,
+  nodeLabel,
   shortId,
 } from "../lib/format";
 import { indexEdges } from "../lib/graphAdapter";
@@ -46,8 +50,9 @@ function DiscoverySummary({ d }: { d: DiscoveryOut }) {
   return (
     <div className="card space-y-2 text-sm" aria-label="Discovery result">
       <p className="font-medium">
-        Discovery finished in {formatDuration(d.duration_ms)} on snapshot{" "}
-        <code>{shortId(d.snapshot_id)}</code>
+        Discovery result from the server (computed in {formatDuration(d.duration_ms)}) on
+        snapshot{" "}
+        <code title={d.snapshot_id}>{shortId(d.snapshot_id)}</code>
       </p>
       <ul className="flex flex-wrap gap-4">
         <li>Tables: {formatInt(d.tables)}</li>
@@ -68,7 +73,9 @@ function DiscoverySummary({ d }: { d: DiscoveryOut }) {
           .join(", ") || "none"}
       </p>
       {d.external_dependencies.length > 0 ? (
-        <p>External dependencies (not inspectable): {d.external_dependencies.join(", ")}</p>
+        <p className="break-words">
+          External dependencies (not inspectable): {d.external_dependencies.join(", ")}
+        </p>
       ) : null}
       <HashBadge label="record_set_hash" value={d.record_set_hash} />
       <HashBadge label="schema_fingerprint" value={d.schema_fingerprint} />
@@ -77,13 +84,39 @@ function DiscoverySummary({ d }: { d: DiscoveryOut }) {
           <p className="font-medium text-amber-800">Warnings</p>
           <ul className="list-disc pl-5">
             {d.warnings.map((w, i) => (
-              <li key={i}>{w}</li>
+              <li key={i} className="break-words">
+                {w}
+              </li>
             ))}
           </ul>
         </div>
       ) : null}
     </div>
   );
+}
+
+/** Latest discovery result from GET /api/discovery/{id}. A 404 means "not run yet". */
+function LatestDiscovery({ query }: { query: ReturnType<typeof useDiscovery> }) {
+  if (query.isPending) return <Loading label="Loading the discovery result" />;
+  if (query.error) {
+    if (isApiError(query.error) && query.error.status === 404) {
+      return (
+        <p className="text-sm text-slate-600">
+          No discovery result available: <code>{query.error.code}</code>
+          {query.error.message ? ` (${query.error.message})` : ""}. Discovery has not run yet, or
+          the subject no longer exists (for example after a LIVE erasure).
+        </p>
+      );
+    }
+    return (
+      <ErrorState
+        error={query.error}
+        title="Could not load the discovery result"
+        onRetry={() => void query.refetch()}
+      />
+    );
+  }
+  return query.data ? <DiscoverySummary d={query.data} /> : null;
 }
 
 // ------------------------------------------------------------------ plan tables
@@ -125,7 +158,7 @@ function EdgeRef({
       onClick={() => onShow(edge)}
       aria-label={`Show evidence for edge ${edge.source} to ${edge.target}`}
     >
-      {ORIGIN_LABEL[edge.origin]}: {edge.source} &rarr; {edge.target}
+      {ORIGIN_LABEL[edge.origin]}: {nodeLabel(edge.source)} &rarr; {nodeLabel(edge.target)}
     </button>
   );
 }
@@ -192,7 +225,9 @@ function ItemsTable({
                     </ul>
                   )}
                 </td>
-                <td className="max-w-xs">{it.reason}</td>
+                <td className="max-w-sm">
+                  <LongText text={it.reason} />
+                </td>
                 <td>{it.retention_policy ?? "-"}</td>
                 <td>{formatInt(it.record_count)}</td>
                 <td>{formatInt(it.expected_row_count)}</td>
@@ -233,7 +268,9 @@ function ConflictsTable({ plan, requestId }: { plan: PlanOut; requestId: string 
               <td className="font-mono text-xs">
                 {c.schema_name}.{c.table_name}
               </td>
-              <td className="max-w-md">{c.message}</td>
+              <td className="max-w-md">
+                <LongText text={c.message} />
+              </td>
               <td>{c.resolution ?? <span className="text-slate-500">unresolved</span>}</td>
               <td>
                 {c.acknowledgeable && !c.resolution ? (
@@ -465,6 +502,7 @@ export function PlanPage() {
 function PlanForRequest({ requestId }: { requestId: string }) {
   const request = useRequest(requestId);
   const discovery = useRunDiscovery(requestId);
+  const latest = useDiscovery(requestId);
   const planId = request.data?.current_plan_id ?? null;
   const plan = usePlan(planId);
 
@@ -486,13 +524,14 @@ function PlanForRequest({ requestId }: { requestId: string }) {
                 {discovery.isPending ? "Discovering..." : "1. Run discovery"}
               </button>
               <span className="text-sm text-slate-500">
-                Executes discovery queries for this subject (record-level lineage).
+                Executes discovery queries for this subject (record-level lineage) and records an
+                audit event.
               </span>
             </div>
             {discovery.error ? (
               <ErrorState error={discovery.error} title="Discovery failed" />
             ) : null}
-            {discovery.data ? <DiscoverySummary d={discovery.data} /> : null}
+            <LatestDiscovery query={latest} />
             <p className="text-sm font-medium">2. Generate a plan</p>
             <GenerateForm requestId={requestId} />
           </section>

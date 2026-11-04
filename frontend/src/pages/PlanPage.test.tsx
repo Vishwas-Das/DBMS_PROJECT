@@ -144,6 +144,22 @@ describe("PlanPage", () => {
           latest_outcome: null,
         });
       if (url === `/api/erasure-plans/${PLAN}`) return json(200, plan());
+      if (url === `/api/discovery/${REQ}`)
+        return json(200, {
+          request_id: REQ,
+          snapshot_id: "33333333-3333-3333-3333-333333333333",
+          schema_fingerprint: "a".repeat(64),
+          tables: 17,
+          table_edges: 20,
+          column_edges: 27,
+          records_found: 9,
+          records_by_role: { SUBJECT_ROOT: 1, OWNED: 7, SHARED: 1 },
+          affected_artifacts: { "app.daily_revenue": "AGGREGATE" },
+          external_dependencies: ["external.crm_export_files"],
+          record_set_hash: "b".repeat(64),
+          duration_ms: 74,
+          warnings: ["2 unconfirmed table edge(s) from subject-reachable tables were not traversed"],
+        });
       if (url.startsWith(`/api/lineage/${REQ}`))
         return json(200, {
           request_id: REQ,
@@ -185,5 +201,43 @@ describe("PlanPage", () => {
 
     expect(screen.getAllByRole("button", { name: "Acknowledge" })).toHaveLength(1);
     expect(screen.getByText("not acknowledgeable")).toBeInTheDocument();
+
+    // The stored discovery result is read with GET, without re-running discovery.
+    expect(await screen.findByText(/Records by role: Subject root: 1, Owned: 7, Shared: 1/)).toBeInTheDocument();
+    expect(screen.getByText(/2 unconfirmed table edge/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "1. Run discovery" })).toBeInTheDocument();
+  });
+
+  it("treats a 404 from GET /api/discovery as 'not run yet' and keeps long reasons readable", async () => {
+    const long = `${"x".repeat(150)} cascade_check tail-of-the-reason`;
+    installFetch((url) => {
+      if (url === "/api/erasure-requests?limit=100") return json(200, []);
+      if (url === `/api/erasure-requests/${REQ}`)
+        return json(200, {
+          id: REQ,
+          subject_root: "customer",
+          subject_key_hmac: "c".repeat(64),
+          status: "PLANNED",
+          requested_by: "op",
+          created_at: "2026-11-04T09:00:00Z",
+          completed_at: null,
+          current_plan_id: PLAN,
+          latest_outcome: null,
+        });
+      if (url === `/api/erasure-plans/${PLAN}`) {
+        const p = plan();
+        return json(200, { ...p, items: p.items.map((i) => ({ ...i, reason: long })) });
+      }
+      if (url === `/api/discovery/${REQ}`)
+        return json(404, { error: { code: "NOT_FOUND", message: "no discovery", details: {} } });
+      if (url.startsWith(`/api/lineage/${REQ}`))
+        return json(404, { error: { code: "NOT_FOUND", message: "no lineage", details: {} } });
+      return undefined;
+    });
+    renderWithProviders(<PlanPage />, { route: `/plan/${REQ}`, path: "/plan/:requestId" });
+    expect(await screen.findByText(/No discovery result available/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "1. Run discovery" })).toBeInTheDocument();
+    expect(await screen.findByText("(show all)")).toBeInTheDocument();
+    expect(screen.getByText(long)).toBeInTheDocument();
   });
 });

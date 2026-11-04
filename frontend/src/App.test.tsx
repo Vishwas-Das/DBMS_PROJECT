@@ -42,7 +42,7 @@ describe("App shell", () => {
     }
     expect(await screen.findByText(/API unavailable \(NETWORK_UNREACHABLE\)/)).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
-    expect(screen.getByText("No token: read-only")).toBeInTheDocument();
+    expect(screen.getByText("No token: enter it in Settings")).toBeInTheDocument();
   });
 
   it("stores the operator token from the Settings dialog in sessionStorage only", async () => {
@@ -55,11 +55,13 @@ describe("App shell", () => {
     fireEvent.change(screen.getByLabelText("API token (LAE_API_TOKEN)"), {
       target: { value: "tok" },
     });
-    fireEvent.change(screen.getByLabelText(/Actor name/), { target: { value: "dana" } });
+    fireEvent.change(screen.getByLabelText(/Approver name/), { target: { value: "dana" } });
+    fireEvent.change(screen.getByLabelText(/Executor name/), { target: { value: "eve" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(getCredentials()).toEqual({ token: "tok", actor: "dana" });
+    expect(getCredentials()).toEqual({ token: "tok", actor: "dana", executor: "eve" });
     expect(window.sessionStorage.getItem("lae.apiToken")).toBe("tok");
     expect(window.localStorage.length).toBe(0);
-    expect(await screen.findByText("Token set (dana)")).toBeInTheDocument();
+    expect(await screen.findByText(/Token set, approver dana, executor eve/)).toBeInTheDocument();
+    expect(window.sessionStorage.getItem("lae.executor")).toBe("eve");
   });
 });

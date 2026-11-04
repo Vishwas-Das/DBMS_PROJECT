@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ApiError, CLIENT_ERROR_CODES } from "../api/client";
 import { prettyJson } from "../lib/format";
+import { requestOpenSettings } from "./SettingsDialog";
 
 export function Loading({ label = "Loading" }: { label?: string }) {
   return (
@@ -33,12 +34,18 @@ const HINTS: Record<string, string> = {
   HTTP_502:
     "The dev/preview proxy could not reach the backend (http://localhost:8000). Is the API running?",
   HTTP_504: "The backend did not answer in time.",
-  UNAUTHORIZED:"Set a valid API token in Settings (top right). Mutations need X-LAE-Token.",
+  UNAUTHORIZED:
+    "Enter a valid API token in Settings (top right). Every call except the health check needs X-LAE-Token.",
   STALE_PLAN: "The schema or the subject's records changed since this plan was generated.",
   PLAN_HASH_MISMATCH: "The plan changed after you loaded it. Reload it and review again.",
   PLAN_BLOCKED: "Resolve or acknowledge the blocking conflicts first.",
   SERIALIZATION_CONFLICT: "A concurrent transaction conflicted. Retry the action.",
 };
+
+/** The server's separation-of-duties refusal (409 INVALID_STATE, message names the rule). */
+function isSeparationOfDuties(e: ApiError): boolean {
+  return e.status === 409 && /separation of duties|four[- ]eyes/i.test(e.message);
+}
 
 export interface ErrorStateProps {
   error: unknown;
@@ -60,6 +67,12 @@ export function ErrorState({ error, title, onRetry, onReplan, replanPending }: E
       </p>
       {e.message ? <p className="mt-1">{e.message}</p> : null}
       {HINTS[e.code] ? <p className="mt-1 text-red-800">{HINTS[e.code]}</p> : null}
+      {isSeparationOfDuties(e) ? (
+        <p className="mt-1 text-red-800">
+          Four-eyes rule: the plan&apos;s approver may not execute it LIVE. Set a different
+          Executor name in Settings, then execute again.
+        </p>
+      ) : null}
       {hasDetails ? (
         <details className="mt-2">
           <summary className="cursor-pointer">Details</summary>
@@ -72,6 +85,11 @@ export function ErrorState({ error, title, onRetry, onReplan, replanPending }: E
         {onRetry ? (
           <button type="button" className="btn-secondary" onClick={onRetry}>
             Retry
+          </button>
+        ) : null}
+        {e.status === 401 || isSeparationOfDuties(e) ? (
+          <button type="button" className="btn-primary" onClick={requestOpenSettings}>
+            Open Settings
           </button>
         ) : null}
         {e.code === "STALE_PLAN" && onReplan ? (

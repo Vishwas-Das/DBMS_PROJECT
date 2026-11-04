@@ -2,7 +2,8 @@
  * Typed fetch wrapper for the LAE API (docs/openapi.json).
  * - Request and response types come from the generated `paths` type, so a contract change breaks the build.
  * - Non-2xx responses are parsed from the `{"error": {code, message, details}}` envelope into ApiError.
- * - Mutations (POST) carry X-LAE-Token / X-LAE-Actor from the sessionStorage credentials.
+ * - Every request carries X-LAE-Token / X-LAE-Actor from the sessionStorage credentials
+ *   (all endpoints except /api/health require the token, GETs included).
  */
 import type { paths } from "./schema";
 import { getCredentials, type Credentials } from "./credentials";
@@ -65,13 +66,23 @@ export interface RequestOptions<P extends keyof paths, M extends Method> {
   query?: ParamsOf<P, M, "query">;
   body?: BodyOf<P, M>;
   signal?: AbortSignal;
+  /** Which configured actor name to send: the executor name for execute calls (four-eyes). */
+  as?: ActorRole;
 }
+
+export type ActorRole = "default" | "executor";
 
 interface RawOptions {
   path?: Record<string, unknown>;
   query?: Record<string, unknown>;
   body?: unknown;
   signal?: AbortSignal;
+  as?: ActorRole;
+}
+
+/** The X-LAE-Actor value for a role. The executor falls back to the default actor. */
+export function actorFor(c: Credentials, role: ActorRole = "default"): string | null {
+  return role === "executor" ? (c.executor ?? c.actor) : c.actor;
 }
 
 export interface ClientConfig {
@@ -136,12 +147,11 @@ export function createClient(config: ClientConfig = {}) {
   async function send(method: Method, template: string, o: RawOptions = {}): Promise<Response> {
     const url = buildUrl(baseUrl, template, o.path, o.query);
     const headers: Record<string, string> = { Accept: "application/json" };
-    if (method === "post") {
-      headers["Content-Type"] = "application/json";
-      const c = creds();
-      if (c.token) headers["X-LAE-Token"] = c.token;
-      if (c.actor) headers["X-LAE-Actor"] = c.actor;
-    }
+    if (method === "post") headers["Content-Type"] = "application/json";
+    const c = creds();
+    if (c.token) headers["X-LAE-Token"] = c.token;
+    const actor = actorFor(c, o.as);
+    if (actor) headers["X-LAE-Actor"] = actor;
     const init: RequestInit = { method: method.toUpperCase(), headers };
     if (method === "post" && o.body !== undefined) init.body = JSON.stringify(o.body);
     if (o.signal) init.signal = o.signal;

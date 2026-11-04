@@ -55,6 +55,7 @@ from lae.contracts.types import (
     KeyTuple,
     RecordKey,
     RelationshipEdge,
+    ResidualProbe,
     SubjectRoot,
     TableRef,
     VerificationReport,
@@ -335,6 +336,8 @@ def set_edge_status(rt: Runtime, edge_id: UUID, status: EdgeStatus, actor: str) 
         edge = snaps.get_edge(edge_id)
         if edge.origin.value != "INFERRED":
             raise ValidationError("only INFERRED edges can be confirmed or rejected")
+        if edge.status is status:
+            return edge  # idempotent: no state change, no audit event
         updated = snaps.set_edge_status(edge_id, status)
         PgAuditSink(s, clock=rt.clock).append(
             AuditEventType.EDGE_STATUS_CHANGED,
@@ -469,6 +472,7 @@ def generate_plan(
         probes = capture_residual_probes(
             root, key, discovery.record_graph, reader, policies, rt.probe_keyring
         )
+        probes, ambiguous = _exclude_ambiguous_probes(rt, reader, ctx.catalog, root, key, probes)
         predicate_counts = {
             k: reader.count_by_columns(k.table, k.columns, [k.values])
             for k, _ in discovery.record_graph.nodes()
@@ -529,9 +533,51 @@ def generate_plan(
                 "conflicts": len(plan.conflicts),
                 "counts_by_category": counts,
                 "residual_probes": len(probes),
+                "ambiguous_probes_excluded": ambiguous,
             },
         )
         return rec.id
+
+
+def _exclude_ambiguous_probes(
+    rt: Runtime,
+    reader: PgTargetReader,
+    catalog: CatalogSnapshot,
+    root: SubjectRoot,
+    key: KeyTuple,
+    probes: list[ResidualProbe],
+) -> tuple[list[ResidualProbe], int]:
+    """Drop probes whose value also identifies ANOTHER row of the subject-root table.
+
+    A residual hit on a value shared with another person (e.g. two customers named
+    "Ulla Dunmore") is not evidence that the subject's data survived, so such probes would make
+    a correct erasure FAILED. A probe is ambiguous if its matches across the root table's
+    text-like columns exceed its matches in the subject's own root row. The subject row is
+    read once here and its values never leave this function. Only counts are kept.
+    Trade-off (documented): non-unique identifiers such as names are not residual-scanned.
+    """
+    info = catalog.table(root.table)
+    text_cols = [c.name for c in info.columns if c.data_type.split("(")[0].strip() in TEXT_TYPES]
+    if not text_cols or not probes:
+        return probes, 0
+    row = reader.fetch_columns(root.table, root.key_columns, key, text_cols) or {}
+    kept: list[ResidualProbe] = []
+    for p in probes:
+        own = sum(
+            1
+            for col in text_cols
+            if isinstance(row.get(col), str)
+            and rt.probe_keyring.digest(row[col], p.normalization) == p.value_hmac
+        )
+        total = sum(
+            reader.hmac_match_count(
+                ColumnRef(root.table, col), [p.value_hmac], p.normalization, rt.probe_key
+            )
+            for col in text_cols
+        )
+        if total <= own:
+            kept.append(p)
+    return kept, len(probes) - len(kept)
 
 
 def _dependency_rows(rt: Runtime, d: RecordDiscoveryResult) -> list[RecordDependencyRow]:
@@ -875,7 +921,13 @@ def _suggest_from_residual_hits(
         return []
     snaps = SnapshotRepo(s)
     catalog = snaps.load_catalog(snapshot_id)
-    existing = {e.edge_id for e in snaps.load_edges(snapshot_id)}
+    loaded = snaps.load_edges(snapshot_id)
+    existing = {e.edge_id for e in loaded}
+    same_pair = {
+        (e.level, e.source, e.source_columns, e.target, e.target_columns)
+        for e in loaded
+        if e.origin.value == "INFERRED"
+    }
     new: list[RelationshipEdge] = []
     for h in hits:
         target = TableRef.parse(h["table"])
@@ -886,8 +938,8 @@ def _suggest_from_residual_hits(
         for src in sources:
             for level in (LineageLevel.TABLE, LineageLevel.COLUMN):
                 eid = uuid5(_RESIDUAL_NS, f"{level}|{root.table}.{src}|{target}.{col}")
-                if eid in existing:
-                    continue
+                if eid in existing or (level, root.table, (src,), target, (col,)) in same_pair:
+                    continue  # already suggested (e.g. by containment inference)
                 new.append(
                     RelationshipEdge(
                         edge_id=eid,

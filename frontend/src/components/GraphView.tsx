@@ -139,21 +139,30 @@ export function RoleLegend() {
 
 // ------------------------------------------------------------------ views
 
+/** Taller canvas for large graphs (the dev DB record graphs reach ~50 nodes). */
+function graphHeight(nodeCount: number): string {
+  if (nodeCount > 40) return "h-[80vh] min-h-[640px]";
+  if (nodeCount > 15) return "h-[68vh] min-h-[560px]";
+  return "h-[480px]";
+}
+
 export function SchemaGraphView({
   graph,
   onSelectEdge,
+  hideIsolated = false,
 }: {
   graph: SchemaGraphOut;
   onSelectEdge: (e: GraphEdgeOut | null) => void;
+  hideIsolated?: boolean;
 }) {
   const { nodes, edges } = useMemo(() => {
-    const flow = schemaGraphToFlow(graph);
+    const flow = schemaGraphToFlow(graph, { hideIsolated });
     const withMarkers = flow.edges.map((e) => ({
       ...e,
       markerEnd: { type: MarkerType.ArrowClosed, color: e.data?.visual.stroke },
     }));
     return { nodes: layoutGraph(flow.nodes, withMarkers), edges: withMarkers };
-  }, [graph]);
+  }, [graph, hideIsolated]);
 
   const onSelection = ({ edges: sel }: OnSelectionChangeParams) => {
     const first = sel[0];
@@ -161,7 +170,7 @@ export function SchemaGraphView({
   };
 
   return (
-    <div className="h-[560px] rounded border border-slate-300 bg-white">
+    <div className={`rounded border border-slate-300 bg-white ${graphHeight(nodes.length)}`}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -193,7 +202,7 @@ export function RecordGraphView({ lineage }: { lineage: LineageOut }) {
   }, [lineage]);
 
   return (
-    <div className="h-[560px] rounded border border-slate-300 bg-white">
+    <div className={`rounded border border-slate-300 bg-white ${graphHeight(nodes.length)}`}>
       <ReactFlow
         nodes={nodes}
         edges={edges}

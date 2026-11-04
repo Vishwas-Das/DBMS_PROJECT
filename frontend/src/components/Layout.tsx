@@ -1,10 +1,11 @@
-import { Suspense, useState, useSyncExternalStore } from "react";
+import { Suspense, useEffect, useState, useSyncExternalStore } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { NavLink, Outlet } from "react-router-dom";
 import { useHealth } from "../api/hooks";
 import { getCredentials, subscribeCredentials } from "../api/credentials";
 import { ApiError } from "../api/client";
 import { Pill } from "./Badges";
-import { SettingsDialog } from "./SettingsDialog";
+import { OPEN_SETTINGS_EVENT, SettingsDialog } from "./SettingsDialog";
 import { Loading } from "./States";
 
 const NAV = [
@@ -52,17 +53,29 @@ function TokenStatus() {
   const creds = useSyncExternalStore(subscribeCredentials, getCredentials);
   return creds.token ? (
     <Pill tone="green" symbol={"✓"}>
-      Token set{creds.actor ? ` (${creds.actor})` : ""}
+      Token set{creds.actor ? `, approver ${creds.actor}` : ""}
+      {creds.executor ? `, executor ${creds.executor}` : ""}
     </Pill>
   ) : (
     <Pill tone="amber" symbol="!">
-      No token: read-only
+      No token: enter it in Settings
     </Pill>
   );
 }
 
 export function Layout() {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const qc = useQueryClient();
+  useEffect(() => {
+    const open = () => setSettingsOpen(true);
+    window.addEventListener(OPEN_SETTINGS_EVENT, open);
+    // New credentials: refetch everything (queries that failed with 401 recover).
+    const unsubscribe = subscribeCredentials(() => void qc.invalidateQueries());
+    return () => {
+      window.removeEventListener(OPEN_SETTINGS_EVENT, open);
+      unsubscribe();
+    };
+  }, [qc]);
   return (
     <div className="flex min-h-screen">
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:p-2">
