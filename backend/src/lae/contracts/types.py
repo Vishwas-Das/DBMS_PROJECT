@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
+from fractions import Fraction
 from types import MappingProxyType
 from typing import Any, Literal
 from uuid import UUID
@@ -34,6 +35,7 @@ from lae.contracts.enums import (
     TableKind,
     Traceability,
     Transform,
+    VerificationOutcome,
     VerificationStatus,
     action_category,
 )
@@ -389,6 +391,16 @@ class CheckResult:
 class VerificationReport:
     status: VerificationStatus
     checks: tuple[CheckResult, ...]
+    outcome: VerificationOutcome = VerificationOutcome.FAILED  # CR lead-1 §3
+    required_artifacts: int = 0
+    verified_artifacts: int = 0
+
+    @property
+    def coverage(self) -> Fraction:
+        """verified / required as an exact fraction (1 when nothing is required)."""
+        if self.required_artifacts == 0:
+            return Fraction(1)
+        return Fraction(self.verified_artifacts, self.required_artifacts)
 
 
 # ------------------------------------------------------------------ audit

@@ -49,3 +49,8 @@ The brief's vocabulary is a **category** shown to users. The fine-grained `PlanA
 
 ## 6. Frontend
 Tailwind CSS is added to the approved React + Vite + TS stack.
+
+## 7. Contract types
+- `PlanItem.reason: str` and the `PlanItem.category` property.
+- `VerificationReport.outcome`, `.required_artifacts`, `.verified_artifacts`, and the `.coverage` property (an exact `Fraction`, so no floats are hashed).
+- `CheckType.RETENTION_HONORED`: a `RETAIN_ROWS` item counts as verified if its rows still exist with the expected count. `verification_check.check_type` CHECK list is extended.
