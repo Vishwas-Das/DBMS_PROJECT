@@ -36,6 +36,7 @@ from lae.contracts.types import (
 from lae.db._sql import (
     DEFAULT_BATCH_SIZE,
     adapt_value,
+    assert_single_select,
     batches,
     cast_type,
     col_ident,
@@ -141,7 +142,7 @@ class PgTargetReader:
         s = _strip_sql(statement)
         if self._allowed is not None and s not in self._allowed:
             raise ValidationError("SQL is not a registered artifact definition")
-        return s
+        return assert_single_select(s)  # security review M1
 
     # ------------------------------------------------------------ execution
     def _raw(self) -> psycopg.Connection[Any]:
@@ -152,10 +153,14 @@ class PgTargetReader:
         query: sql.SQL | sql.Composed,
         params: Sequence[Any] | Mapping[str, Any] | None,
         table: TableRef | None,
+        *,
+        single_statement: bool = False,
     ) -> psycopg.Cursor[Any]:
         cur = self._raw().cursor()
         try:
-            cur.execute(query, params)
+            # prepare=True forces the extended protocol: PostgreSQL then rejects any text that
+            # contains more than one statement (defence in depth for artifact SQL, review M1).
+            cur.execute(query, params, prepare=True if single_statement else None)
         except psycopg.Error as exc:
             cur.close()
             raise translate_error(exc, table) from None
@@ -238,7 +243,12 @@ class PgTargetReader:
         """Execute a REGISTERED artifact definition read-only (savepoint, rolled back)."""
         statement = self._sql_allowed(sql_text)
         # The statement is a registered artifact definition, never user/request input.
-        with self._read_only(), self._exec(sql.SQL(statement), dict(params) or None, None) as cur:
+        with (
+            self._read_only(),
+            self._exec(
+                sql.SQL(statement), dict(params) or None, None, single_statement=True
+            ) as cur,
+        ):
             return [tuple(out_value(v) for v in r) for r in cur.fetchall()]
 
     def hmac_match_count(
@@ -289,7 +299,7 @@ class PgTargetReader:
             "SELECT count(*) FROM ((SELECT * FROM {t} EXCEPT ALL ({f})) "
             "UNION ALL (({f}) EXCEPT ALL SELECT * FROM {t})) AS d"
         ).format(t=table_ident(stored), f=fresh)
-        with self._read_only(), self._exec(query, None, stored) as cur:
+        with self._read_only(), self._exec(query, None, stored, single_statement=True) as cur:
             row = cur.fetchone()
             return int(row[0]) if row else 0
 
@@ -450,5 +460,5 @@ class PgTargetWriter(PgTargetReader):
         statement = sql.SQL(self._sql_allowed(definition_sql))
         self._exec(sql.SQL("DELETE FROM {}").format(table_ident(table)), None, table).close()
         query = sql.SQL("INSERT INTO {t} {f}").format(t=table_ident(table), f=statement)
-        with self._exec(query, None, table) as cur:
+        with self._exec(query, None, table, single_statement=True) as cur:
             return cur.rowcount if cur.rowcount >= 0 else 0

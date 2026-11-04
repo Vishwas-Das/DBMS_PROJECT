@@ -562,9 +562,12 @@
             "items": {
               "anyOf": [
                 {
+                  "maximum": 9.223372036854776e+18,
+                  "minimum": -9.223372036854776e+18,
                   "type": "integer"
                 },
                 {
+                  "maxLength": 128,
                   "type": "string"
                 }
               ]
@@ -576,6 +579,8 @@
           },
           "subject_root": {
             "default": "customer",
+            "maxLength": 63,
+            "pattern": "^[a-z_][a-z0-9_]*$",
             "title": "Subject Root",
             "type": "string"
           }
@@ -2038,6 +2043,38 @@
               "title": "Limit",
               "type": "integer"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Actor"
+            }
           }
         ],
         "responses": {
@@ -2132,6 +2169,40 @@
     "/api/audit/verify-chain": {
       "post": {
         "operationId": "verify_chain_api_audit_verify_chain_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-lae-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Actor"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -2229,6 +2300,38 @@
               "format": "uuid",
               "title": "Request Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Actor"
             }
           }
         ],
@@ -2328,6 +2431,7 @@
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 16,
                   "type": "string"
                 },
                 {
@@ -2335,6 +2439,38 @@
                 }
               ],
               "title": "Scenario"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Actor"
             }
           }
         ],
@@ -2459,6 +2595,38 @@
               "title": "Limit",
               "type": "integer"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Actor"
+            }
           }
         ],
         "responses": {
@@ -2562,6 +2730,38 @@
               "format": "uuid",
               "title": "Request Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Actor"
             }
           }
         ],
@@ -2792,6 +2992,38 @@
               "format": "uuid",
               "title": "Plan Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Actor"
             }
           }
         ],
@@ -3487,6 +3719,38 @@
               "title": "Limit",
               "type": "integer"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Actor"
+            }
           }
         ],
         "responses": {
@@ -3721,6 +3985,38 @@
               "title": "Request Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Actor"
+            }
           }
         ],
         "responses": {
@@ -3821,6 +4117,38 @@
               "title": "Request Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Actor"
+            }
           }
         ],
         "responses": {
@@ -3919,6 +4247,38 @@
               "title": "Request Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Actor"
+            }
           }
         ],
         "responses": {
@@ -4016,6 +4376,38 @@
               "format": "uuid",
               "title": "Request Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Actor"
             }
           }
         ],
@@ -4355,6 +4747,38 @@
               "title": "Level",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Actor"
+            }
           }
         ],
         "responses": {
@@ -4469,6 +4893,38 @@
               "title": "Level",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Actor"
+            }
           }
         ],
         "responses": {
@@ -4559,6 +5015,40 @@
     "/api/stats": {
       "get": {
         "operationId": "stats_api_stats_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-lae-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Actor"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -4656,6 +5146,38 @@
               "format": "uuid",
               "title": "Request Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-lae-actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Lae-Actor"
             }
           }
         ],

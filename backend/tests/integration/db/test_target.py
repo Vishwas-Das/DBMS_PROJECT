@@ -189,8 +189,12 @@ def test_run_readonly_sql(app_conn: Connection, catalog: CatalogSnapshot) -> Non
     with pytest.raises(ValidationError):
         r.run_readonly_sql("SELECT 1", {})
     unrestricted = PgTargetReader(app_conn, catalog)
-    with pytest.raises(TargetQueryError) as info:
+    # security review M1: non-SELECT text is now rejected before it reaches PostgreSQL
+    with pytest.raises(ValidationError):
         unrestricted.run_readonly_sql("DELETE FROM app.marketing_event_log", {})
+    # the READ ONLY savepoint is still the second line of defence (a SELECT calling a writer)
+    with pytest.raises(TargetQueryError) as info:
+        unrestricted.run_readonly_sql("SELECT nextval('app.customer_id_seq')", {})
     assert info.value.details["sqlstate"] == "25006"  # read_only_sql_transaction
     # the surrounding transaction is still healthy and read-write
     assert app_conn.execute(text("SELECT count(*) FROM app.marketing_event_log")).scalar_one() == 40

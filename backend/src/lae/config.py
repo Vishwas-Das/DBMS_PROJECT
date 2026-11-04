@@ -16,12 +16,14 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="LAE_", env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+psycopg://lae_owner:lae_owner_dev@localhost:5433/lae"
+    admin_url: str | None = None  # migrations + seeding (superuser); the app never uses it
     reader_url: str | None = None
     executor_url: str | None = None
     target_schemas: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["app"])
     hmac_key: SecretStr | None = None
     signing_key_path: Path | None = None
-    api_token: str | None = None  # X-LAE-Token for mutating API calls (local prototype auth)
+    api_token: SecretStr | None = None  # X-LAE-Token (local prototype auth), >= 24 chars
+    require_four_eyes: bool = True  # approver may not execute (separation of duties)
     statement_timeout_ms: int = 30_000
     lock_timeout_ms: int = 5_000
 
@@ -39,6 +41,13 @@ class Settings(BaseSettings):
             raise ValueError("at least one target schema is required")
         if "lae" in v:
             raise ValueError("the engine schema 'lae' can never be an erasure target")
+        return v
+
+    @field_validator("api_token")
+    @classmethod
+    def _token_strength(cls, v: SecretStr | None) -> SecretStr | None:
+        if v is not None and len(v.get_secret_value()) < 24:
+            raise ValueError("LAE_API_TOKEN must be at least 24 characters")
         return v
 
     def url_for(self, role: str) -> str:

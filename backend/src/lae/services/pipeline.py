@@ -90,6 +90,7 @@ from lae.discovery import (
 )
 from lae.errors import (
     AlreadyExecutedError,
+    ExecutionError,
     InvalidStateTransition,
     LaeError,
     NotFoundError,
@@ -308,6 +309,15 @@ def load_lineage(rt: Runtime, s: Session, snapshot_id: UUID) -> LineageContext:
     return LineageContext(snapshot_id, catalog, edges, graph, inspectable, external)
 
 
+def latest_snapshot(rt: Runtime) -> UUID:
+    """Read paths only: the latest READY snapshot, never creating one (review M6)."""
+    with session_scope(rt.reader, read_only=True) as s:
+        latest = SnapshotRepo(s).latest()
+    if latest is None:
+        raise NotFoundError("no lineage snapshot yet; run discovery first")
+    return latest.id
+
+
 def latest_or_new_snapshot(rt: Runtime, actor: str) -> UUID:
     """Reuse the latest snapshot only if the live catalog fingerprint still matches it."""
     with session_scope(rt.reader, read_only=True) as s:
@@ -357,9 +367,20 @@ def create_request(
             raise ValidationError("subject key arity does not match the subject root key")
         catalog = SnapshotRepo(s).load_catalog(snapshot_id)
         reader = PgTargetReader(s, catalog)
-        if reader.count_by_columns(root.table, root.key_columns, [subject_key]) != 1:
+        rows = reader.select_by_columns(
+            root.table, root.key_columns, [subject_key], select=root.key_columns
+        )
+        if len(rows) != 1:
             raise SubjectNotFoundError("no such data subject")
+        # review M4: canonicalise from the DB row ('42', '042' and 42 are the same subject)
+        subject_key = tuple(rows[0][c] for c in root.key_columns)
         key_hmac = _key_hmac(rt, _subject_record_key(root, subject_key))
+        for other in RequestRepo(s).find_by_hmac(root.root_id, key_hmac):
+            if other.status not in (RequestStatus.VERIFIED, RequestStatus.CANCELLED):
+                raise InvalidStateTransition(
+                    "an open erasure request already exists for this subject",
+                    details={"request_id": str(other.id)},
+                )
         req = RequestRepo(s).create(root.root_id, subject_key, key_hmac, actor, reason)
         PgAuditSink(s, clock=rt.clock).append(
             AuditEventType.REQUEST_RECEIVED,
@@ -385,8 +406,9 @@ def _request_subject(s: Session, request_id: UUID) -> tuple[SubjectRoot, KeyTupl
 def run_discovery(
     rt: Runtime, request_id: UUID, actor: str, *, audit: bool = True
 ) -> DiscoverySummary:
+    """audit=False is the read-only path (GET): it never creates a snapshot or writes."""
     t0 = time.perf_counter()
-    snapshot_id = latest_or_new_snapshot(rt, actor)
+    snapshot_id = latest_or_new_snapshot(rt, actor) if audit else latest_snapshot(rt)
     with session_scope(rt.reader, isolation="REPEATABLE READ", read_only=True) as s:
         root, key = _request_subject(s, request_id)
         ctx = load_lineage(rt, s, snapshot_id)
@@ -445,7 +467,7 @@ def generate_plan(
         reader = PgTargetReader(s, ctx.catalog)
         discovery = discover_records(ctx.graph, root, key, reader, limits, policies)
         probes = capture_residual_probes(
-            root, key, discovery.record_graph, reader, policies, rt.keyring
+            root, key, discovery.record_graph, reader, policies, rt.probe_keyring
         )
         predicate_counts = {
             k: reader.count_by_columns(k.table, k.columns, [k.values])
@@ -468,6 +490,7 @@ def generate_plan(
         live = plans.live_for_request(request_id)
         if live is not None:
             plans.set_status(live.id, PlanStatus.SUPERSEDED)
+            plans.purge_raw_keys(live.id)  # review H3: superseded versions keep HMACs only
         hmacs = {
             it.step_order: [
                 _key_hmac(rt, RecordKey(it.table, it.key_columns, k, False)) for k in it.record_keys
@@ -627,7 +650,13 @@ def execute(
             if ExecutionRepo(s).committed_live(plan_id) is not None:
                 raise AlreadyExecutedError("this plan was already executed")
             approval = plans.approval(plan_id)
-            assert approval is not None
+            if approval is None:  # explicit check (asserts vanish under python -O, review L3)
+                raise InvalidStateTransition("plan has no recorded approval")
+            if rt.settings.require_four_eyes and approval.approved_by == actor:
+                raise InvalidStateTransition(
+                    "separation of duties: the approver may not execute the plan",
+                    details={"rule": "four_eyes"},
+                )
         else:
             if rec.status not in (PlanStatus.DRAFT, PlanStatus.APPROVED):
                 raise InvalidStateTransition(f"cannot dry-run a {rec.status} plan")
@@ -650,7 +679,7 @@ def execute(
             ctx = load_lineage(rt, s, rec.snapshot_id)
             policies = PolicyRepo(s).policy_set()
             writer = PgTargetWriter(
-                s, ctx.catalog, hmac_key=rt.hmac_key, allowed_sql=_allowed_sql(ctx)
+                s, ctx.catalog, hmac_key=rt.pseudonym_key, allowed_sql=_allowed_sql(ctx)
             )
             schemas = tuple(rt.settings.target_schemas)
 
@@ -684,6 +713,13 @@ def execute(
                 s.rollback()  # DRY RUN: every change (data + audit append) is discarded
     except LaeError as exc:
         error = exc
+    except Exception as exc:  # review L3: never leave a run RUNNING on an unexpected error
+        log.error("execution failed unexpectedly", extra={"type": type(exc).__name__})
+        error = ExecutionError(
+            "execution failed unexpectedly",
+            code="EXECUTION_FAILED",
+            details={"type": type(exc).__name__},
+        )
 
     if mode is ExecutionMode.DRY_RUN or error is not None:
         status = (
@@ -768,7 +804,7 @@ def verify(rt: Runtime, execution_run_id: UUID, actor: str) -> UUID:
                 list(ctx.artifacts),
                 probes,
                 _scan_columns(ctx.catalog),
-                rt.hmac_key,
+                rt.probe_key,
                 policies,
             )
     except LaeError:
@@ -961,7 +997,11 @@ def issue_evidence(rt: Runtime, plan_id: UUID, actor: str) -> UUID:
         )
         if report.outcome is VerificationOutcome.VERIFIED:
             RequestRepo(s).purge_subject_key(prec.request_id)
-            purged = PlanRepo(s).purge_raw_keys(plan_id)
+            # review H3: every plan version of the request, not only the executed one
+            purged = sum(
+                PlanRepo(s).purge_raw_keys(p.id)
+                for p in PlanRepo(s).list_for_request(prec.request_id)
+            )
             sink.append(
                 AuditEventType.SUBJECT_DATA_PURGED,
                 "erasure_request",

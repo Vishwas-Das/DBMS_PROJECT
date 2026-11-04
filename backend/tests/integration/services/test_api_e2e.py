@@ -28,7 +28,8 @@ from lae.services.runtime import Runtime
 
 pytestmark = pytest.mark.integration
 TOKEN = "e2e-token-" + "x" * 22
-H = {"X-LAE-Token": TOKEN, "X-LAE-Actor": "e2e"}
+H = {"X-LAE-Token": TOKEN, "X-LAE-Actor": "e2e-operator"}
+HA = {"X-LAE-Token": TOKEN, "X-LAE-Actor": "e2e-approver"}  # four-eyes: approver != executor
 
 
 @pytest.fixture
@@ -37,6 +38,13 @@ def env(
 ) -> Iterator[dict[str, Any]]:
     """Fresh tiny dataset per test (tests commit erasures), own signing key, real PostgreSQL."""
     engine, truth = seeded_db
+    with engine.begin() as conn:  # re-seeding resets `app` only; close earlier tests' requests
+        conn.execute(
+            sa.text(
+                "UPDATE lae.erasure_request SET status = 'CANCELLED' "
+                "WHERE status NOT IN ('VERIFIED', 'CANCELLED')"
+            )
+        )
     Signer.generate().save(tmp_path / "signing.pem")
     rt = Runtime.from_settings(
         Settings(
@@ -47,7 +55,7 @@ def env(
         )
     )
     rt.anchor_dir = tmp_path / "anchors"
-    client = TestClient(create_app(lambda: LaeServices(rt), api_token=TOKEN))
+    client = TestClient(create_app(lambda: LaeServices(rt), api_token=TOKEN), headers=H)
     try:
         yield {"engine": engine, "truth": truth, "rt": rt, "client": client}
     finally:
@@ -127,8 +135,10 @@ def test_health_and_stats_are_live(env: dict[str, Any]) -> None:
 
 
 def test_unauthorized_mutations_are_rejected(env: dict[str, Any]) -> None:
-    c = env["client"]
+    c = TestClient(create_app(lambda: LaeServices(env["rt"]), api_token=TOKEN))  # no token
     before = _table_counts(env["engine"])
+    assert c.get("/api/stats").status_code == 401  # reads are protected too
+    assert c.get("/api/health").status_code == 200  # only health is public
     assert c.post("/api/erasure-requests", json={"subject_key": [1]}).status_code == 401
     assert (
         c.post(
@@ -159,11 +169,13 @@ def test_full_erasure_happy_path_checked_against_the_database(env: dict[str, Any
 
     # approval is bound to the exact hash
     bad = c.post(
-        f"/api/erasure-plans/{plan['id']}/approve", json={"plan_hash": "0" * 64}, headers=H
+        f"/api/erasure-plans/{plan['id']}/approve", json={"plan_hash": "0" * 64}, headers=HA
     )
     assert bad.status_code == 409 and bad.json()["error"]["code"] == "PLAN_HASH_MISMATCH"
     ok = c.post(
-        f"/api/erasure-plans/{plan['id']}/approve", json={"plan_hash": plan["plan_hash"]}, headers=H
+        f"/api/erasure-plans/{plan['id']}/approve",
+        json={"plan_hash": plan["plan_hash"]},
+        headers=HA,
     )
     assert ok.status_code == 200 and ok.json()["status"] == "APPROVED"
 
@@ -239,7 +251,7 @@ def test_verified_outcome_purges_raw_subject_data(env: dict[str, Any]) -> None:
         c.post(
             f"/api/erasure-plans/{plan['id']}/approve",
             json={"plan_hash": plan["plan_hash"]},
-            headers=H,
+            headers=HA,
         )
         ex = c.post(f"/api/erasure-plans/{plan['id']}/execute", json={"mode": "LIVE"}, headers=H)
         assert ex.status_code == 200, ex.text
@@ -269,7 +281,9 @@ def test_hidden_copies_fail_verification_and_are_suggested(env: dict[str, Any]) 
     if plan["is_blocked"]:
         pytest.skip("first hidden-copy subject has a blocking conflict at this seed")
     c.post(
-        f"/api/erasure-plans/{plan['id']}/approve", json={"plan_hash": plan["plan_hash"]}, headers=H
+        f"/api/erasure-plans/{plan['id']}/approve",
+        json={"plan_hash": plan["plan_hash"]},
+        headers=HA,
     )
     c.post(f"/api/erasure-plans/{plan['id']}/execute", json={"mode": "LIVE"}, headers=H)
     v = c.get(f"/api/verification/{flow['request_id']}").json()
@@ -295,7 +309,9 @@ def test_drift_between_approval_and_execution_is_detected(env: dict[str, Any]) -
     flow = _run_to_plan(c, subject)
     plan = flow["plan"]
     c.post(
-        f"/api/erasure-plans/{plan['id']}/approve", json={"plan_hash": plan["plan_hash"]}, headers=H
+        f"/api/erasure-plans/{plan['id']}/approve",
+        json={"plan_hash": plan["plan_hash"]},
+        headers=HA,
     )
     with engine.begin() as conn:  # concurrent business activity after approval
         conn.execute(
@@ -326,7 +342,7 @@ def test_shared_records_block_live_execution(env: dict[str, Any]) -> None:
         r = c.post(
             f"/api/erasure-plans/{plan['id']}/approve",
             json={"plan_hash": plan["plan_hash"]},
-            headers=H,
+            headers=HA,
         )
         assert r.status_code == 409
 

@@ -7,7 +7,7 @@ No schema here ever carries a raw subject key, email or phone after request crea
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -96,9 +96,12 @@ class CustomerOut(_Out):
 # ------------------------------------------------------------------ requests
 
 
+KeyItem = Annotated[int, Field(ge=-(2**63), le=2**63 - 1)] | Annotated[str, Field(max_length=128)]
+
+
 class ErasureRequestCreate(_In):
-    subject_root: str = "customer"
-    subject_key: list[int | str] = Field(min_length=1, max_length=8)
+    subject_root: str = Field(default="customer", max_length=63, pattern=r"^[a-z_][a-z0-9_]*$")
+    subject_key: list[KeyItem] = Field(min_length=1, max_length=8)
     reason: str | None = Field(default=None, max_length=500)
 
 

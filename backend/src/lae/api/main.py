@@ -10,4 +10,7 @@ from lae.services.runtime import configure_logging
 
 configure_logging()
 _settings = get_settings()
-app = create_app(build_services, api_token=_settings.api_token)
+app = create_app(
+    build_services,
+    api_token=_settings.api_token.get_secret_value() if _settings.api_token else None,
+)

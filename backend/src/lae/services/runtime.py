@@ -18,6 +18,20 @@ from lae.db.engine import make_engine
 from lae.errors import ConfigurationError
 
 
+def derive_subkey(master: bytes, purpose: str) -> bytes:
+    """HKDF-SHA256 per-purpose subkey (security review M3: domain separation).
+
+    The audit/evidence identity key never reaches the database. Only the probe and pseudonym
+    subkeys do (they must, for in-DB HMAC matching and pseudonym generation).
+    """
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
+    return HKDF(
+        algorithm=hashes.SHA256(), length=32, salt=b"lae-hkdf-salt-v1", info=purpose.encode("ascii")
+    ).derive(master)
+
+
 def utc_now() -> datetime:
     return datetime.now(UTC)
 
@@ -37,8 +51,10 @@ class Runtime:
     settings: Settings
     owner: Engine
     reader: Engine
-    keyring: HmacKeyring
-    hmac_key: bytes
+    keyring: HmacKeyring  # audit/evidence/request identity -- never sent to PostgreSQL
+    probe_keyring: HmacKeyring  # residual probes; its key IS sent to PG for the scan
+    probe_key: bytes
+    pseudonym_key: bytes  # PSEUDONYM column values; sent to PG by the writer
     signer: Signer | None
     clock: Callable[[], datetime] = utc_now
     limits: DiscoveryLimits = field(default_factory=DiscoveryLimits)
@@ -57,12 +73,15 @@ class Runtime:
             raise ConfigurationError(
                 "signing key not found; set LAE_SIGNING_KEY_PATH and run `lae keys generate`"
             )
+        probe_key = derive_subkey(key, "lae/residual-probe/v1")
         return cls(
             settings=s,
             owner=make_engine(s, "owner"),
             reader=make_engine(s, "reader"),
-            keyring=HmacKeyring(key),
-            hmac_key=key,
+            keyring=HmacKeyring(derive_subkey(key, "lae/audit-identity/v1")),
+            probe_keyring=HmacKeyring(probe_key),
+            probe_key=probe_key,
+            pseudonym_key=derive_subkey(key, "lae/pseudonym/v1"),
             signer=signer,
         )
 

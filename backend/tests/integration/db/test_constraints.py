@@ -377,7 +377,8 @@ CASES: list[tuple[str, dict[str, Any], str]] = [
     ("erasure_plan", {"status": "EXECUTED"}, "ck_erasure_plan_approval_consistent"),
     (
         "erasure_plan",
-        {"status": "SUPERSEDED", "approved_at": text("now()")},
+        # migration 0002: SUPERSEDED may keep approval history; DRAFT/BLOCKED never may
+        {"status": "BLOCKED", "approved_at": text("now()")},
         "ck_erasure_plan_approval_consistent",
     ),
     ("erasure_plan", {"approved_hash": "b" * 64}, "ck_erasure_plan_approved_hash_matches"),

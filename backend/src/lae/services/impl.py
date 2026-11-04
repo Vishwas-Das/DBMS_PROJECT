@@ -170,7 +170,11 @@ class LaeServices:
                 "WHERE %(q)s::text IS NULL OR full_name ILIKE %(like)s OR id::text = %(q)s "
                 "ORDER BY id LIMIT %(n)s"
             ).format(t=t)
-            like = f"%{q}%" if q else None
+            # review H2: escape LIKE wildcards so `q=_` / `q=%` cannot enumerate everyone
+            like = None
+            if q:
+                escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                like = f"%{escaped}%"
             raw = s.connection().connection.driver_connection
             assert raw is not None
             with raw.cursor() as cur:

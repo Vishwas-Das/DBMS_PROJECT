@@ -66,7 +66,7 @@ def test_no_token_configured_disables_mutations(stub: StubServices) -> None:
 
 def test_domain_errors_map_to_envelopes(client: TestClient) -> None:
     h = {"X-LAE-Token": TOKEN}
-    r = client.get(f"/api/erasure-requests/{uuid4()}")
+    r = client.get(f"/api/erasure-requests/{uuid4()}", headers=h)
     assert r.status_code == 404 and r.json()["error"]["code"] == "NOT_FOUND"
     r = client.post(
         f"/api/erasure-plans/{uuid4()}/approve", json={"plan_hash": "a" * 64}, headers=h
@@ -90,7 +90,7 @@ def test_validation_errors_do_not_echo_values(client: TestClient) -> None:
 
 
 def test_unhandled_errors_hide_details(client: TestClient) -> None:
-    r = client.get("/api/stats")
+    r = client.get("/api/stats", headers={"X-LAE-Token": TOKEN})
     assert r.status_code == 500
     assert r.json() == {"error": {"code": "INTERNAL", "message": "internal error", "details": {}}}
     assert "alice" not in r.text

@@ -161,3 +161,37 @@ def translate_error(exc: psycopg.Error, table: TableRef | None = None) -> LaeErr
         return SerializationConflict("serialization failure", details=details)
     where = f" on {table.qualified()}" if table is not None else ""
     return TargetQueryError(f"target query failed (SQLSTATE {sqlstate}){where}", details=details)
+
+
+def assert_single_select(statement: str) -> str:
+    """Security review M1: an artifact definition must be exactly ONE query (SELECT/UNION/...),
+    with no DML, DDL, transaction control or data-modifying CTE. Parsed with SQLGlot; anything
+    unparseable is rejected. Returns the statement unchanged."""
+    import sqlglot
+    from sqlglot import exp
+
+    # bound-parameter placeholders are not SQL; replace them with NULL for parsing only
+    probe = re.sub(r"%\(\w+\)s|%s", "NULL", statement)
+    try:
+        trees = [t for t in sqlglot.parse(probe, read="postgres") if t is not None]
+    except sqlglot.errors.SqlglotError:
+        raise ValidationError("artifact definition is not parseable SQL") from None
+    if len(trees) != 1 or not isinstance(trees[0], exp.Query):
+        raise ValidationError("artifact definition must be exactly one SELECT query")
+    forbidden = (
+        exp.Insert,
+        exp.Update,
+        exp.Delete,
+        exp.Merge,
+        exp.Create,
+        exp.Drop,
+        exp.Alter,
+        exp.Command,
+        exp.Transaction,
+        exp.Commit,
+        exp.Rollback,
+        exp.Into,
+    )
+    if any(isinstance(node, forbidden) for node in trees[0].walk()):
+        raise ValidationError("artifact definition may not modify data or schema")
+    return statement

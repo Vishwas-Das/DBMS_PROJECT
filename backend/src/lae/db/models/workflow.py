@@ -138,7 +138,9 @@ class ErasurePlanModel(Base):
         CheckConstraint("version >= 1", name="version_positive"),
         CheckConstraint("record_count >= 0", name="record_count_nonneg"),
         CheckConstraint(
-            f"(status IN ({in_list(APPROVED_PLAN_STATUSES)})) = (approved_at IS NOT NULL)",
+            # migration 0002: SUPERSEDED/FAILED plans may keep their approval history
+            f"CASE WHEN status IN ({in_list(APPROVED_PLAN_STATUSES)}) THEN approved_at IS NOT NULL "
+            "WHEN status IN ('DRAFT','BLOCKED') THEN approved_at IS NULL ELSE true END",
             name="approval_consistent",
         ),
         CheckConstraint(

@@ -41,10 +41,20 @@ def _echo(obj: object) -> None:
 # ------------------------------------------------------------------ db
 @db_app.command("upgrade")
 def db_upgrade(url: Annotated[str | None, typer.Option(help="database URL")] = None) -> None:
-    """Run Alembic migrations (schema `lae`)."""
-    cmd = [sys.executable, "-m", "alembic", "-c", str(REPO / "backend" / "alembic.ini")]
-    if url:
-        cmd += ["-x", f"url={url}"]
+    """Run Alembic migrations (schema `lae`) with the ADMIN url (the app role cannot migrate)."""
+    from lae.config import get_settings
+
+    s = get_settings()
+    target = url or s.admin_url or s.database_url
+    cmd = [
+        sys.executable,
+        "-m",
+        "alembic",
+        "-c",
+        str(REPO / "backend" / "alembic.ini"),
+        "-x",
+        f"url={target}",
+    ]
     raise typer.Exit(subprocess.call([*cmd, "upgrade", "head"]))  # noqa: S603 - fixed argv
 
 
@@ -56,9 +66,12 @@ def db_seed(
     out: Path = Path("db/fixtures/out/ground_truth.json"),
 ) -> None:
     """(Re)create the synthetic `app` schema + lae configuration. Synthetic data only."""
+    import sqlalchemy as sa
+
     from lae.config import get_settings
 
-    target = url or get_settings().database_url
+    s = get_settings()
+    target = url or s.admin_url or s.database_url
     cmd = [
         sys.executable,
         "-m",
@@ -72,7 +85,13 @@ def db_seed(
         "--out",
         str(out),
     ]
-    raise typer.Exit(subprocess.call(cmd, cwd=REPO))  # noqa: S603 - fixed argv
+    rc = subprocess.call(cmd, cwd=REPO)  # noqa: S603 - fixed argv
+    if rc == 0:  # re-apply ownership/grants for the non-superuser lae_app role (migration 0002)
+        eng = sa.create_engine(target)
+        with eng.begin() as conn:
+            conn.execute(sa.text("SELECT lae.grant_app_role()"))
+        eng.dispose()
+    raise typer.Exit(rc)
 
 
 # ------------------------------------------------------------------ keys

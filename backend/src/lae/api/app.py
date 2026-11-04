@@ -14,6 +14,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, FastAPI, Header, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 
 from lae.api.schemas import (
@@ -87,6 +88,7 @@ def create_app(
     *,
     api_token: str | None,
     cors_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173"),
+    allowed_hosts: tuple[str, ...] = ("localhost", "127.0.0.1", "testserver"),
 ) -> FastAPI:
     """Build the app. `services_factory` is called lazily once, on the first request."""
     app = FastAPI(
@@ -97,6 +99,8 @@ def create_app(
             "Responses never contain raw subject keys or identifier values."
         ),
     )
+    # review H2: refuse requests whose Host header is not local (mitigates DNS rebinding)
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(allowed_hosts))
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(cors_origins),
@@ -118,7 +122,10 @@ def create_app(
         """Local-prototype auth: shared token, constant-time compare. Returns the actor name."""
         if not api_token:
             raise AuthError("server has no LAE_API_TOKEN configured; mutations are disabled")
-        if x_lae_token is None or not hmac.compare_digest(x_lae_token, api_token):
+        # compare bytes: str compare_digest raises TypeError on non-ASCII input (review L4)
+        if x_lae_token is None or not hmac.compare_digest(
+            x_lae_token.encode("utf-8"), api_token.encode("utf-8")
+        ):
             raise AuthError("missing or invalid X-LAE-Token")
         actor = (x_lae_actor or "local-operator").strip()[:64]
         return actor or "local-operator"
@@ -169,9 +176,11 @@ def create_app(
         return _envelope(500, "INTERNAL", "internal error")
 
     # --------------------------------------------------------------- routes
-    r = APIRouter(prefix="/api", responses=ERROR_RESPONSES)
+    public = APIRouter(prefix="/api", responses=ERROR_RESPONSES)
+    # review H2: every route except /api/health requires the token (reads included)
+    r = APIRouter(prefix="/api", responses=ERROR_RESPONSES, dependencies=[Depends(require_token)])
 
-    @r.get("/health", response_model=HealthOut)
+    @public.get("/health", response_model=HealthOut)
     def health(s: Svc) -> HealthOut:
         return s.health()
 
@@ -298,8 +307,11 @@ def create_app(
         )
 
     @r.get("/benchmarks", response_model=list[BenchmarkRunOut])
-    def benchmarks(s: Svc, scenario: str | None = None) -> list[BenchmarkRunOut]:
+    def benchmarks(
+        s: Svc, scenario: Annotated[str | None, Query(max_length=16)] = None
+    ) -> list[BenchmarkRunOut]:
         return s.benchmark_runs(scenario)
 
+    app.include_router(public)
     app.include_router(r)
     return app
