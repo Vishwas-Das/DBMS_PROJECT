@@ -16,24 +16,24 @@ Rule: an item is ticked only when an automated test has passed against the real 
 - [x] API contract: FastAPI app + schemas + service Protocol + OpenAPI (42d0bde). 6 API unit tests
 
 ## Stages (mission brief §18)
-| Stage | Owner | Status |
-|---|---|---|
-| 0 Inspect repo + verify reported state | Lead | [x] 288 tests, gates clean (verified independently) |
-| 1 Preserve graph + crypto | Lead | [x] unchanged and passing |
-| 2 DB schema, migrations, synthetic data, adapters | Database Eng | [~] agent running |
-| 3 Schema + FK discovery | Discovery Eng | [~] agent running (unit). Integration pending stage 2 |
-| 4 SQL lineage (SQLGlot) | Discovery Eng | [~] agent running |
-| 5 Record-level resolution | Discovery Eng | [~] agent running (unit). Integration pending stage 2 |
-| 6 Lineage integration + graph facade | Graph Eng | [~] agent running |
-| 7 Planner + policy engine | Erasure Eng | [~] agent running (unit) |
-| 8 Safe execution | Erasure Eng | [~] agent running (unit). Integration pending stage 2 |
-| 9 Independent verification + metrics | Verification Eng | [~] agent running (unit) |
-| 10 DB-backed audit + evidence | Verification Eng + DB Eng (PgAuditSink) + Lead | [~] |
-| 11 FastAPI integration (services impl) | Lead | [ ] waiting on repositories |
-| 12 React dashboard | Frontend Eng | [~] agent running against the OpenAPI contract |
-| 13 End-to-end + acceptance tests | QA/DevOps + Lead | [ ] |
-| 14 Benchmarks | QA/DevOps | [ ] |
-| 15 Documentation + demo | Lead | [ ] |
+| Stage | Owner | Status | Evidence |
+|---|---|---|---|
+| 0 Inspect + verify reported state | Lead | [x] | 288 tests reproduced independently |
+| 1 Preserve graph + crypto | Lead | [x] | golden vectors byte-identical through every commit |
+| 2 DB schema, migrations, synthetic data, adapters | Database Eng | [x] 5f5c6f0 | 183 integration tests (real PG). Dev DB: 1 000 customers, 3 000 orders, 1 000 tickets, 500 documents, 500 embeddings |
+| 3 Schema + FK discovery | Discovery Eng | [x] f04c921, 7967d07 | 12/12 FKs vs pg_get_constraintdef. Fingerprint + drift on real PG |
+| 4 SQL lineage (SQLGlot) | Discovery Eng | [x] | 55-case matrix. Real viewdefs: customer_ltv/customer_segment KEY_PRESERVING, daily_revenue AGGREGATE |
+| 5 Record-level resolution | Discovery Eng | [x] | precision = recall = F1 = 1 vs ground truth at tiny/small/default scale (FK + registered). Hidden copies missed by design |
+| 6 Lineage graph + facade | Graph Eng | [x] 96faef2 | 75 tests, 100 % coverage |
+| 7 Planner + policy engine | Erasure Eng | [x] a160fe4, 7967d07 | 170 tests, 99 %. Shared rows never destroyed (Hypothesis property) |
+| 8 Safe execution | Erasure Eng + Lead | [x] | real PG: dry run leaves counts unchanged, drift gives STALE_PLAN with no changes, idempotent, all-or-nothing |
+| 9 Independent verification | Verification Eng | [x] 8377766, e7a59c9 | 24 real-PG tests. Residual scan catches the hidden copies FK erasure leaves |
+| 10 DB-backed audit + evidence | Verification Eng + DB Eng + Lead | [x] | offline verification with DB access blocked. Tamper detected at exact seq (hash + envelope) |
+| 11 FastAPI integration | Lead | [x] 7967d07 | 23 endpoints. 9 e2e API tests on real PG with direct-SQL checks |
+| 12 React dashboard | Frontend Eng | [~] round 2 (live backend) running | round 1: 59 tests |
+| 13 E2E + security tests | QA + Lead | [~] QA running. Independent security review running | |
+| 14 Benchmarks | QA | [~] running | |
+| 15 Documentation | Docs agent + Lead | [~] running | |
 
 ## Blocker log
 | Date | Blocker | Resolution |
