@@ -1,0 +1,32 @@
+# secrets — never commit
+secrets/
+.env
+*.pem
+!backend/tests/unit/audit/vectors/*.pem
+
+# python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# node
+node_modules/
+frontend/dist/
+
+# runtime artefacts
+benchmarks/results/raw/
+db/fixtures/out/
+*.log
+.pgdata/
+
+# editors
+.vscode/
+.idea/
