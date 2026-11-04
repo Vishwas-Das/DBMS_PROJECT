@@ -1,49 +1,42 @@
 # Implementation Checklist
 
-Legend: `[x]` done and verified (test output recorded) · `[~]` in progress · `[ ]` not started · `[!]` blocked.
-Rule: an item is ticked only when an automated test has passed against the real artefact. For DB items, that means a real PostgreSQL.
+Legend: `[x]` done and verified by the Lead (test output recorded) · `[~]` in progress · `[ ]` not started · `[!]` blocked.
+Rule: an item is ticked only when an automated test has passed against the real artefact. For DB items, that means the real PostgreSQL in Docker.
 
 ## Environment
-- [x] Git repository initialised (`main`)
-- [x] Python venv + backend packages (SQLAlchemy 2.1.8, SQLGlot 30.29.0, NetworkX 3.7, psycopg 3.3.8, cryptography 50.0.2)
-- [!] WSL2 + Docker Desktop. **Blocked: needs admin + reboot (user action)**
-- [ ] PostgreSQL 16 + pgcrypto reachable for integration tests
-- [ ] pgvector available (deferred: not needed for the vertical slice)
+- [x] Git repository (`main`)
+- [x] Python venv + backend packages
+- [x] Docker Desktop 4.98 / Engine 29.9.2 / Compose v5.6.1 (the CLI is not on PATH in agent shells; use the full path)
+- [x] PostgreSQL 16.15 + pgvector 0.8.7 + pgcrypto 1.3 via `docker compose up -d db` (localhost:5433, DBs `lae` + `lae_test`, role `lae_reader`)
 
-## M0: Contracts
-- [x] `backend/pyproject.toml` (package `lae`, pytest markers, ruff, mypy, import-linter)
-- [x] `lae.errors`, `lae.config`, `lae.contracts.{enums,types,ports}`
-- [x] Contract smoke tests: 8 passed. ruff clean. mypy --strict clean. import-linter 4/4 kept
+## Contracts
+- [x] M0 contracts (8e45cdf), canonical JSON (81b5696)
+- [x] CR graph-engineer-1, CR verification-crypto-engineer-1 decided
+- [x] CR lead-1: action categories, outcome/coverage, CACHE/EXTERNAL artifacts, `/api` paths, token auth (329c357, 10694e5, a6975d0)
+- [x] API contract: FastAPI app + schemas + service Protocol + OpenAPI (42d0bde). 6 API unit tests
 
-## Vertical slice VS-1 (core only: FK lineage, DELETE/EXPECT_CASCADE/NULLIFY_REFERENCE)
-| # | Stage | Module / owner | Status |
-|---|---|---|---|
-| 1 | Synthetic customer creation (deterministic generator + ground truth) | db/fixtures · DB Eng | [ ] |
-| 2 | PostgreSQL storage (`lae` Alembic baseline, `app` slice schema) | db · DB Eng | [ ] |
-| 3 | Foreign-key discovery (catalog + FKs from pg_catalog) | discovery · Discovery Eng | [ ] |
-| 4 | Record-level dependency identification | discovery · Discovery Eng | [ ] |
-| 5 | NetworkX lineage graph + RecordGraph | lineage · Graph Eng | [x] 49 tests, 100 % coverage, verified by Lead |
-| 6 | Erasure plan generation (+ hash, conflicts subset) | planner · Erasure Eng | [ ] |
-| 7 | Dry-run execution (rollback, counts) | executor · Erasure Eng | [ ] |
-| 8 | Approved erasure (hash-bound, drift check, rowcount assertions) | executor + services · Erasure Eng / Lead | [ ] |
-| 9 | Verification (ROW_ABSENT, CASCADE_COMPLETE, REFERENCE_NULLIFIED, REDISCOVERY_EMPTY) checked against the DB | verification · Crypto Eng | [ ] |
-| 10 | Audit evidence (canonical JSON, hash chain, Merkle, Ed25519, offline verify) | audit · Crypto Eng | [~] primitives done: 231 tests, 100 % coverage, verified by Lead. Wiring to the DB pending |
-| 11 | Service-layer integration + CLI `lae erase` end-to-end | services/cli · Lead | [ ] |
-| 12 | E2E test: actual DB row counts before/after equal ground truth | tests/e2e · QA | [ ] |
-
-## Deferred until after VS-1
-- [ ] SQLGlot SQL lineage + derived artifacts (matviews, CTAS, embeddings)
-- [ ] Inferred relationships, PII suggestions, residual HMAC scan
-- [ ] ANONYMIZE policies + full conflict catalogue
-- [ ] FastAPI routers (after service contracts are stable)
-- [ ] Frontend (after API is stable)
-- [ ] Docker Compose full stack verified running
-- [ ] Benchmarks B1–B6
-- [ ] Acceptance tests AT-01…AT-24
+## Stages (mission brief §18)
+| Stage | Owner | Status |
+|---|---|---|
+| 0 Inspect repo + verify reported state | Lead | [x] 288 tests, gates clean (verified independently) |
+| 1 Preserve graph + crypto | Lead | [x] unchanged and passing |
+| 2 DB schema, migrations, synthetic data, adapters | Database Eng | [~] agent running |
+| 3 Schema + FK discovery | Discovery Eng | [~] agent running (unit). Integration pending stage 2 |
+| 4 SQL lineage (SQLGlot) | Discovery Eng | [~] agent running |
+| 5 Record-level resolution | Discovery Eng | [~] agent running (unit). Integration pending stage 2 |
+| 6 Lineage integration + graph facade | Graph Eng | [~] agent running |
+| 7 Planner + policy engine | Erasure Eng | [~] agent running (unit) |
+| 8 Safe execution | Erasure Eng | [~] agent running (unit). Integration pending stage 2 |
+| 9 Independent verification + metrics | Verification Eng | [~] agent running (unit) |
+| 10 DB-backed audit + evidence | Verification Eng + DB Eng (PgAuditSink) + Lead | [~] |
+| 11 FastAPI integration (services impl) | Lead | [ ] waiting on repositories |
+| 12 React dashboard | Frontend Eng | [~] agent running against the OpenAPI contract |
+| 13 End-to-end + acceptance tests | QA/DevOps + Lead | [ ] |
+| 14 Benchmarks | QA/DevOps | [ ] |
+| 15 Documentation + demo | Lead | [ ] |
 
 ## Blocker log
-| Date | Blocker | Impact | Owner | Resolution |
-|---|---|---|---|---|
-| 2026-11-04 | WSL2/Docker Desktop not installed. Shell not elevated | Can't run `docker compose`. Integration tests need some PostgreSQL | User | pending |
-| 2026-11-04 | Re-checked after the user said Docker was installed: **no Docker found** (no docker.exe, no registry entry, not on PATH). `wsl --status`: Virtual Machine Platform component not enabled | DB stages 1–4, 7–9 blocked | User | pending: needs admin `wsl --install --no-distribution`, reboot, Docker Desktop |
-| 2026-11-04 | `.claude/agents/*` not loaded as agent types (created mid-session) | Specialists run as general-purpose agents that load their role file | Lead | workaround in place. Loads natively next session |
+| Date | Blocker | Resolution |
+|---|---|---|
+| 2026-11-04 | Docker not installed | **Resolved:** Docker Desktop installed by the user. Compose stack verified healthy |
+| 2026-11-04 | `.claude/agents` not loaded mid-session | **Resolved:** loaded in the new session. Real agent types in use |
