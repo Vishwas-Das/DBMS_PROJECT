@@ -142,3 +142,19 @@ the same computation. Also exported: `plan_with_hash`, `plan_hash_payload`, `ini
 11. Status machine: DRAFT→{BLOCKED, APPROVED, SUPERSEDED}, BLOCKED→{DRAFT, SUPERSEDED},
     APPROVED→{EXECUTED, FAILED, SUPERSEDED}, EXECUTED→{VERIFIED, FAILED}. VERIFIED, SUPERSEDED and
     FAILED are terminal.
+
+---
+## Lead decision (2026-11-04)
+- Executor appends `EXECUTION_COMMITTED` itself (same transaction): ACCEPTED. The service must not append a second one. Executor result status COMMITTED (LIVE) / ROLLED_BACK (DRY_RUN): ACCEPTED, and the service persists the final status after its commit/rollback actually happens.
+- `plan_hasher=compute_plan_hash` is always passed by the service: ACCEPTED.
+- CR §1 `predicate_row_counts`: ACCEPTED. The **service** computes them with `TargetReader.count_by_columns` for predicate keys.
+- CR §2/§3 (`recompute_sql`, `pseudonym_columns` kwargs): ACCEPTED as kwargs. No new PlanItem fields (the SQL hash is already bound into the hashed reason).
+- CR §5, §6: ACCEPTED.
+- Policy §1 AT-11: **reworded.** "order_line = ANONYMIZE under deleted purchase_order → CASCADE_DESTROYS_RETAINED".
+- Policy §3, §4, §5: ACCEPTED.
+- **Policy §2 (SAFETY), CHANGED: SHARED rows must never be destroyed, not even after acknowledgement.**
+  "Never delete unrelated customer records" is a hard rule. Therefore:
+  (a) If a SHARED row's link into the subject's record set is a **nullable** FK, the planner emits `NULLIFY_REFERENCE` (detach) on that FK, **ordered before** the parent delete, plus a `SHARED_RECORD` WARNING. The shared row survives.
+  (b) If the link is NOT NULL (it would cascade or be restricted), `SHARED_RECORD` is BLOCKING and **not acknowledgeable** (removed from the acknowledgeable set). Resolving it needs a policy/schema decision, not a click.
+  (c) Any row that an `ON DELETE CASCADE` would remove but that is not OWNED is a BLOCKING conflict (`CASCADE_DESTROYS_RETAINED`, message "cascade would delete a record not owned by the subject").
+  (d) The executor adds a safety assertion: before each parent `DELETE_ROWS`, count the child rows on every CASCADE FK that reference the batch and require that count == the planned `EXPECT_CASCADE` total for that FK, otherwise `RowCountMismatch`. This catches unplanned cascades from concurrent inserts as well.
