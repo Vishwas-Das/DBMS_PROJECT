@@ -32,3 +32,6 @@ CREATE SCHEMA IF NOT EXISTS app AUTHORIZATION lae_owner;
 GRANT USAGE ON SCHEMA lae, app TO lae_reader;
 ALTER DEFAULT PRIVILEGES FOR ROLE lae_owner IN SCHEMA app GRANT SELECT ON TABLES TO lae_reader;
 ALTER DEFAULT PRIVILEGES FOR ROLE lae_owner IN SCHEMA lae GRANT SELECT ON TABLES TO lae_reader;
+
+-- Per-workstream integration-test databases (parallel agents must not share a schema they drop).
+-- Created on a fresh volume. On an existing volume, run scripts/create_test_dbs.py.
