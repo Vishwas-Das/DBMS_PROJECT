@@ -19,7 +19,7 @@ How the prototype is tested, how to run each suite, what exists (real counts at 
 
 ## 2. Test databases
 
-- Fixtures: `backend/tests/conftest.py` reads `LAE_TEST_DATABASE_URL` (default `postgresql+psycopg://lae_owner:lae_owner_dev@localhost:5433/lae_test`) and **skips** integration tests with an explicit reason if PostgreSQL is unreachable.
+- Fixtures: `backend/tests/conftest.py` reads `LAE_TEST_DATABASE_URL` (default `postgresql+psycopg://lae_owner:lae_owner_dev@127.0.0.1:5433/lae_test`) and **skips** integration tests with an explicit reason if PostgreSQL is unreachable.
 - `backend/tests/integration/conftest.py: migrated_url` only accepts `lae_test` or `lae_test_<suffix>`. `migrated_db` **drops and recreates** the `lae` and `app` schemas, then runs `alembic upgrade head`. `seeded_db` loads the generator dataset (default `tiny`, seed 7) and re-seeds only when (scale, seed) changes or a test calls `mark_dataset_dirty`.
 - Per-workstream databases exist on the local server: `lae_test_lead` (db, services), `lae_test_disc` (discovery), `lae_test_verif` (verification), plus `lae_test_erasure`, `lae_test_qa` and `lae_test_bench`. **Note:** `db/init/01_init.sql` at HEAD creates only `lae_test`. The other databases were created outside the committed init script.
 - The session-scoped fixtures mean that **all integration tests of one pytest session must use the same database URL**, so run each directory against its own DB.
@@ -33,11 +33,11 @@ From `backend/`, with the venv:
 ..\.venv\Scripts\python -m pytest tests -m unit -q
 
 # integration, one workstream per DB
-$env:LAE_TEST_DATABASE_URL="postgresql+psycopg://lae_owner:lae_owner_dev@localhost:5433/lae_test_lead"
+$env:LAE_TEST_DATABASE_URL="postgresql+psycopg://lae_owner:lae_owner_dev@127.0.0.1:5433/lae_test_lead"
 ..\.venv\Scripts\python -m pytest tests\integration\db tests\integration\services -m integration -q
-$env:LAE_TEST_DATABASE_URL="postgresql+psycopg://lae_owner:lae_owner_dev@localhost:5433/lae_test_disc"
+$env:LAE_TEST_DATABASE_URL="postgresql+psycopg://lae_owner:lae_owner_dev@127.0.0.1:5433/lae_test_disc"
 ..\.venv\Scripts\python -m pytest tests\integration\discovery -m integration -q
-$env:LAE_TEST_DATABASE_URL="postgresql+psycopg://lae_owner:lae_owner_dev@localhost:5433/lae_test_verif"
+$env:LAE_TEST_DATABASE_URL="postgresql+psycopg://lae_owner:lae_owner_dev@127.0.0.1:5433/lae_test_verif"
 ..\.venv\Scripts\python -m pytest tests\integration\verification -m integration -q
 
 # collection only (what was done for the counts below)

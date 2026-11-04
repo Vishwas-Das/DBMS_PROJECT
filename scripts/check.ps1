@@ -19,7 +19,7 @@
 param(
     [string]$SingleTestDb = "",
     [string]$Only = "",
-    [string]$ServerUrl = "postgresql+psycopg://lae_owner:lae_owner_dev@localhost:5433",
+    [string]$ServerUrl = "postgresql+psycopg://lae_owner:lae_owner_dev@127.0.0.1:5433",
     [switch]$SkipFrontend,
     [switch]$SkipDb
 )

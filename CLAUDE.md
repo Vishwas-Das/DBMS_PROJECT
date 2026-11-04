@@ -75,7 +75,7 @@ ruff check src tests; ruff format --check src tests
 mypy src\lae
 lint-imports
 pytest tests -m unit
-$env:LAE_TEST_DATABASE_URL="postgresql+psycopg://lae_owner:lae_owner_dev@localhost:5433/lae_test_lead"; pytest tests\integration\db tests\integration\services
+$env:LAE_TEST_DATABASE_URL="postgresql+psycopg://lae_owner:lae_owner_dev@127.0.0.1:5433/lae_test_lead"; pytest tests\integration\db tests\integration\services
 cd frontend; npm run typecheck; npm run lint; npm test -- --run; npm run build
 
 # workflow / evaluation

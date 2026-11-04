@@ -12,7 +12,7 @@ from collections.abc import Iterator
 
 import pytest
 
-DEFAULT_TEST_URL = "postgresql+psycopg://lae_owner:lae_owner_dev@localhost:5433/lae_test"
+DEFAULT_TEST_URL = "postgresql+psycopg://lae_owner:lae_owner_dev@127.0.0.1:5433/lae_test"
 
 
 def test_database_url() -> str:

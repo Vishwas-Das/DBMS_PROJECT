@@ -1,7 +1,7 @@
 """Deterministic synthetic data generator for the demo `app` schema (database_schema.md §4, §7).
 
     python -m db.fixtures.generator --scale default --seed 42 \
-        --url postgresql://lae_owner:...@localhost:5433/lae --out db/fixtures/out/ground_truth.json
+        --url postgresql://lae_owner:...@127.0.0.1:5433/lae --out db/fixtures/out/ground_truth.json
 
 * Fully synthetic: invented names, ``@example.test`` emails, ``+1-555`` phones. No real data.
 * Deterministic: one ``random.Random(seed)``, fixed base timestamp, no ``now()``. The same seed and

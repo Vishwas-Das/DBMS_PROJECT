@@ -2,7 +2,7 @@
 
     python scripts/create_test_dbs.py                       # lae_test + every default suffix
     python scripts/create_test_dbs.py --names qa,bench      # lae_test_qa, lae_test_bench only
-    python scripts/create_test_dbs.py --admin-url postgresql://lae_owner:...@localhost:5433/postgres
+    python scripts/create_test_dbs.py --admin-url postgresql://lae_owner:...@127.0.0.1:5433/postgres
 
 db/init/01_init.sql does the same on a FRESH volume (docker-entrypoint-initdb.d runs only once).
 For each database: CREATE DATABASE (if missing), extensions pgcrypto + vector, schemas lae + app,
@@ -24,7 +24,7 @@ from psycopg import sql
 
 DEFAULT_SUFFIXES = ("qa", "bench", "disc", "erasure", "lead", "verif")
 NAME_RE = re.compile(r"^lae_test(_[a-z0-9]+)*$")
-DEFAULT_ADMIN = "postgresql://lae_owner:lae_owner_dev@localhost:5433/postgres"
+DEFAULT_ADMIN = "postgresql://lae_owner:lae_owner_dev@127.0.0.1:5433/postgres"
 
 
 def _admin_url() -> str:

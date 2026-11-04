@@ -1,7 +1,7 @@
 """Benchmark runner: three erasure methods x scales, measured independently by SQL.
 
     python -m benchmarks.run --scales small,default,large --subjects 20 --seed 42 \
-        --db-url postgresql://lae_owner:...@localhost:5433/lae_test_bench
+        --db-url postgresql://lae_owner:...@127.0.0.1:5433/lae_test_bench
 
 Protocol (documented in results/summary.md):
 
@@ -44,7 +44,7 @@ from benchmarks.methods import METHODS, FkOnlyDeletion, LaePipeline, ManualDelet
 
 log = logging.getLogger("benchmarks.run")
 RESULTS = Path(__file__).resolve().parent / "results"
-DEFAULT_URL = "postgresql://lae_owner:lae_owner_dev@localhost:5433/lae_test_bench"
+DEFAULT_URL = "postgresql://lae_owner:lae_owner_dev@127.0.0.1:5433/lae_test_bench"
 PHASES = (
     "request",
     "discovery",
