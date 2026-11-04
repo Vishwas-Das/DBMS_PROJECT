@@ -70,7 +70,7 @@ python_version = "3.12"
 strict = true
 mypy_path = "src"
 packages = ["lae"]
-plugins = []
+plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
 module = ["networkx.*", "sqlglot.*", "pgvector.*"]
