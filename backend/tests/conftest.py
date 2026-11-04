@@ -1,7 +1,7 @@
 """Shared pytest fixtures.
 
 Integration/e2e tests use a REAL PostgreSQL (`LAE_TEST_DATABASE_URL`, default: the docker-compose
-`lae_test` database on localhost:5433). If it is unreachable those tests are SKIPPED with an explicit
+`lae_test` database on localhost:5433). If unreachable, those tests are SKIPPED with an explicit
 reason. They never silently pass.
 """
 
@@ -32,7 +32,7 @@ def pg_engine(pg_url: str) -> Iterator[object]:
     try:
         with engine.connect() as conn:
             conn.execute(sqlalchemy.text("SELECT 1"))
-    except Exception as exc:  # noqa: BLE001 - any connection failure means "DB unavailable"
+    except Exception as exc:
         engine.dispose()
         pytest.skip(f"PostgreSQL test database unavailable at {pg_url.split('@')[-1]}: {exc}")
     yield engine

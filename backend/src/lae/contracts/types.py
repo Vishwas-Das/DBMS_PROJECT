@@ -13,6 +13,7 @@ from typing import Any, Literal
 from uuid import UUID
 
 from lae.contracts.enums import (
+    ActionCategory,
     ArtifactKind,
     CheckType,
     ConflictCode,
@@ -34,6 +35,7 @@ from lae.contracts.enums import (
     Traceability,
     Transform,
     VerificationStatus,
+    action_category,
 )
 from lae.errors import UnknownColumnError, UnknownTableError, ValidationError
 
@@ -289,6 +291,11 @@ class PlanItem:
     expected_row_count: int | None = None
     depends_on: tuple[int, ...] = ()
     reason_edge_ids: tuple[UUID, ...] = ()
+    reason: str = ""  # explainable, PII-free sentence (CR lead-1)
+
+    @property
+    def category(self) -> ActionCategory:
+        return action_category(self.action)
 
     def __post_init__(self) -> None:
         if self.step_order < 1:
