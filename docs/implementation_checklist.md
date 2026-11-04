@@ -27,7 +27,7 @@ Rule: an item is ticked only when an automated test has passed against the real 
 | 7 | Dry-run execution (rollback, counts) | executor · Erasure Eng | [ ] |
 | 8 | Approved erasure (hash-bound, drift check, rowcount assertions) | executor + services · Erasure Eng / Lead | [ ] |
 | 9 | Verification (ROW_ABSENT, CASCADE_COMPLETE, REFERENCE_NULLIFIED, REDISCOVERY_EMPTY) checked against the DB | verification · Crypto Eng | [ ] |
-| 10 | Audit evidence (canonical JSON, hash chain, Merkle, Ed25519, offline verify) | audit · Crypto Eng | [~] canonical JSON done (Lead). Primitives: agent running |
+| 10 | Audit evidence (canonical JSON, hash chain, Merkle, Ed25519, offline verify) | audit · Crypto Eng | [~] primitives done: 231 tests, 100 % coverage, verified by Lead. Wiring to the DB pending |
 | 11 | Service-layer integration + CLI `lae erase` end-to-end | services/cli · Lead | [ ] |
 | 12 | E2E test: actual DB row counts before/after equal ground truth | tests/e2e · QA | [ ] |
 

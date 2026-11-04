@@ -1,0 +1,330 @@
+{
+  "_comment": "Golden vectors for lae.audit. Must never change without a documented reason (CLAUDE.md). Test-only keys: HMAC key = bytes 0x00..0x1f, Ed25519 key = test_signing_key.pem.",
+  "version": 1,
+  "hmac_key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "canonical": [
+    {
+      "name": "empty_object",
+      "input": {},
+      "canonical_hex": "7b7d"
+    },
+    {
+      "name": "key_order",
+      "input": {
+        "b": 1,
+        "a": [
+          3,
+          2,
+          1
+        ],
+        "c": {
+          "z": null,
+          "y": true
+        }
+      },
+      "canonical_hex": "7b2261223a5b332c322c315d2c2262223a312c2263223a7b2279223a747275652c227a223a6e756c6c7d7d"
+    },
+    {
+      "name": "unicode",
+      "input": {
+        "name": "Zoë Ångström",
+        "emoji": "😀",
+        "cjk": "数据"
+      },
+      "canonical_hex": "7b22636a6b223a22e695b0e68dae222c22656d6f6a69223a22f09f9880222c226e616d65223a225a6fc3ab20c3856e67737472c3b66d227d"
+    },
+    {
+      "name": "escapes",
+      "input": {
+        "s": "line\nbreak \"quoted\" back\\slash \u0001"
+      },
+      "canonical_hex": "7b2273223a226c696e655c6e627265616b205c2271756f7465645c22206261636b5c5c736c617368205c7530303031227d"
+    },
+    {
+      "name": "big_int",
+      "input": {
+        "n": 1180591620717411303424,
+        "neg": -1,
+        "zero": 0
+      },
+      "canonical_hex": "7b226e223a313138303539313632303731373431313330333432342c226e6567223a2d312c227a65726f223a307d"
+    }
+  ],
+  "hmac": [
+    {
+      "value": "alice@example.com",
+      "normalization": "EXACT",
+      "digest": "a59fc578d4cb46faab1d6eb348e7c74b33b85122d6459fdb7bf5654b333acab4"
+    },
+    {
+      "value": "  Alice@Example.COM \t",
+      "normalization": "LOWER_TRIM",
+      "digest": "a59fc578d4cb46faab1d6eb348e7c74b33b85122d6459fdb7bf5654b333acab4"
+    },
+    {
+      "value": "+1 (555) 010-9999",
+      "normalization": "DIGITS_ONLY",
+      "digest": "bc3d699389850c7b17a28ff93cd804b0dafe967652eed529f33704796a332210"
+    },
+    {
+      "value": 42,
+      "normalization": "EXACT",
+      "digest": "7df989924b2ebf8832c80802d1213a8a21a062a23877f0718effe501daee1703"
+    },
+    {
+      "value": "Zoë",
+      "normalization": "LOWER_TRIM",
+      "digest": "9317ed2c836657136e23681b53076e600e9a8c1f17b3aa61a914b42f14482c4e"
+    }
+  ],
+  "key_digest": {
+    "table": "app.customer",
+    "columns": [
+      "customer_id"
+    ],
+    "values": [
+      42
+    ],
+    "is_predicate": false,
+    "digest": "0fb430fbd2d8395dcb836c65988ef47192be6d258653d08f450e9813440d83d8"
+  },
+  "chain": {
+    "genesis": "0000000000000000000000000000000000000000000000000000000000000000",
+    "events": [
+      {
+        "seq": 1,
+        "event_type": "REQUEST_RECEIVED",
+        "payload_canonical": "{\"request_id\":\"00000000-0000-4000-8000-000000000001\"}",
+        "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "event_hash": "c48a2fb988d2daf5499e4166286c0dc453cb0a544388b20160a5a9872e41fdaf"
+      },
+      {
+        "seq": 2,
+        "event_type": "PLAN_CREATED",
+        "payload_canonical": "{\"items\":3,\"plan_hash\":\"abababababababababababababababababababababababababababababababab\"}",
+        "prev_hash": "c48a2fb988d2daf5499e4166286c0dc453cb0a544388b20160a5a9872e41fdaf",
+        "event_hash": "d7a134bedd9e113bf8e0fb68aa98aa4e379e49838a379674ef48ab8e636b4c4c"
+      },
+      {
+        "seq": 5,
+        "event_type": "PLAN_APPROVED",
+        "payload_canonical": "{\"approved_by\":\"Zoë\",\"plan_hash\":\"abababababababababababababababababababababababababababababababab\"}",
+        "prev_hash": "d7a134bedd9e113bf8e0fb68aa98aa4e379e49838a379674ef48ab8e636b4c4c",
+        "event_hash": "6b1557ccd55bec034956be1d04e4c0f981bdc261909cb8aacf610fd1402d4d1f"
+      }
+    ]
+  },
+  "merkle": {
+    "leaves": [
+      {
+        "table": "app.customer",
+        "key_hmac": "20b3e20e7e780f07f2a42c11fbf6d961b4abe8c53f5b3778ab6e94d87e1b3a4b",
+        "action": "DELETE_ROWS",
+        "check_types": [
+          "ROW_ABSENT"
+        ],
+        "passed": true
+      },
+      {
+        "table": "app.order",
+        "key_hmac": "a84007c5c812d2cfa9648ea187d52b1300fad3792e45254a7f4c6cac133f6d0f",
+        "action": "EXPECT_CASCADE",
+        "check_types": [
+          "CASCADE_COMPLETE"
+        ],
+        "passed": true
+      },
+      {
+        "table": "app.support_ticket",
+        "key_hmac": "9db78be97846f105225d6d08f9f78dabb69a39f6ca5218d5069b1ce4760f1407",
+        "action": "ANONYMIZE_ROWS",
+        "check_types": [
+          "RESIDUAL_VALUE_SCAN",
+          "COLUMNS_ANONYMIZED"
+        ],
+        "passed": true
+      },
+      {
+        "table": "app.review",
+        "key_hmac": "3501c5d42d4f148c2c47600c89b1a92dfe98dd98ae3d6bc21bcd1da5990634ea",
+        "action": "NULLIFY_REFERENCE",
+        "check_types": [
+          "REFERENCE_NULLIFIED"
+        ],
+        "passed": false
+      },
+      {
+        "table": "app.order_summary_mv",
+        "key_hmac": "f929f002c32f2836e3d508b757b4bf8c1313363bfd04c88e49c45ccd77cfe449",
+        "action": "REFRESH_MATVIEW",
+        "check_types": [
+          "DERIVED_CONSISTENT"
+        ],
+        "passed": true
+      }
+    ],
+    "leaf_hashes": [
+      "e69e12e5669a9d4c9be26e2e33a6f8bbf700e5bd23837d8c7188da78e833a44e",
+      "300103b32b5dbbd69125e73eb2a3e36befc04d5d5ec59e162bd94b7f09b3c72f",
+      "d78c34d4f1f0015a5cd1d0bf9bfc5282c3542499cb952c388fbc443090edb23d",
+      "43fa35a8615ac5841351ef1d9a75d333d92d003a4597a216857e42c8aff339d7",
+      "be1406646bdc9dded8521dc50a5a97cd2eb09d66101393389b93867cd102bb60"
+    ],
+    "root": "7fdee4cec8ad57e4b17c21e24e35c9c8ae26d67a3ab85bf38868a03fd6d33c8e",
+    "proof_index": 3,
+    "proof": {
+      "leaf_index": 3,
+      "leaf_hash": "43fa35a8615ac5841351ef1d9a75d333d92d003a4597a216857e42c8aff339d7",
+      "siblings": [
+        {
+          "hash": "d78c34d4f1f0015a5cd1d0bf9bfc5282c3542499cb952c388fbc443090edb23d",
+          "side": "L"
+        },
+        {
+          "hash": "0ac379d5bebc19099eeea6c9bbcc7ae488d5788257281e2a45a5cdbda002607d",
+          "side": "L"
+        },
+        {
+          "hash": "be1406646bdc9dded8521dc50a5a97cd2eb09d66101393389b93867cd102bb60",
+          "side": "R"
+        }
+      ],
+      "root": "7fdee4cec8ad57e4b17c21e24e35c9c8ae26d67a3ab85bf38868a03fd6d33c8e"
+    }
+  },
+  "merkle_empty_root": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "signature": {
+    "message_hex": "4c414520676f6c64656e20766563746f72207631",
+    "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAzN7wI6jaMfF64XyOw3oUIll5VlXuq+GYmjCD2Vh8YIA=\n-----END PUBLIC KEY-----\n",
+    "key_id": "4c2fada436d2148b",
+    "signature_b64": "MQbNHrWeswMIGi+SHh2+f74yru3QDsun5YVWAsXA6kH6gEMs5gDKZ/HnzQP/5bOKS6E639msJYMzscox+lWDDA=="
+  },
+  "evidence": {
+    "inputs": {
+      "plan": {
+        "plan_id": "00000000-0000-4000-8000-0000000000a1",
+        "request_id": "00000000-0000-4000-8000-0000000000b1",
+        "schema_fingerprint": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "record_set_hash": "efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+        "plan_hash": "abababababababababababababababababababababababababababababababab"
+      },
+      "execution": {
+        "run_id": "00000000-0000-4000-8000-0000000000c1",
+        "committed_at": "2026-11-04T10:15:30.123456+00:00",
+        "steps": [
+          {
+            "step_order": 1,
+            "status": "APPLIED",
+            "rows_affected": 1,
+            "expected_rows": 1,
+            "duration_ms": 3
+          },
+          {
+            "step_order": 2,
+            "status": "APPLIED",
+            "rows_affected": 4,
+            "expected_rows": 4,
+            "duration_ms": 5
+          },
+          {
+            "step_order": 3,
+            "status": "SKIPPED",
+            "rows_affected": null,
+            "expected_rows": null,
+            "duration_ms": 0
+          }
+        ]
+      },
+      "verification": {
+        "status": "PASSED",
+        "checks": [
+          {
+            "check_type": "ROW_ABSENT",
+            "table": "app.customer",
+            "column": null,
+            "step_order": 1,
+            "passed": true,
+            "observed": {
+              "count": 0
+            },
+            "expected": {
+              "count": 0
+            }
+          },
+          {
+            "check_type": "RESIDUAL_VALUE_SCAN",
+            "table": null,
+            "column": null,
+            "step_order": null,
+            "passed": true,
+            "observed": {
+              "residual_hits": []
+            },
+            "expected": {
+              "residual_hits": []
+            }
+          }
+        ]
+      },
+      "leaves": [
+        {
+          "table": "app.customer",
+          "key_hmac": "20b3e20e7e780f07f2a42c11fbf6d961b4abe8c53f5b3778ab6e94d87e1b3a4b",
+          "action": "DELETE_ROWS",
+          "check_types": [
+            "ROW_ABSENT"
+          ],
+          "passed": true
+        },
+        {
+          "table": "app.order",
+          "key_hmac": "a84007c5c812d2cfa9648ea187d52b1300fad3792e45254a7f4c6cac133f6d0f",
+          "action": "EXPECT_CASCADE",
+          "check_types": [
+            "CASCADE_COMPLETE"
+          ],
+          "passed": true
+        },
+        {
+          "table": "app.support_ticket",
+          "key_hmac": "9db78be97846f105225d6d08f9f78dabb69a39f6ca5218d5069b1ce4760f1407",
+          "action": "ANONYMIZE_ROWS",
+          "check_types": [
+            "RESIDUAL_VALUE_SCAN",
+            "COLUMNS_ANONYMIZED"
+          ],
+          "passed": true
+        },
+        {
+          "table": "app.review",
+          "key_hmac": "3501c5d42d4f148c2c47600c89b1a92dfe98dd98ae3d6bc21bcd1da5990634ea",
+          "action": "NULLIFY_REFERENCE",
+          "check_types": [
+            "REFERENCE_NULLIFIED"
+          ],
+          "passed": false
+        },
+        {
+          "table": "app.order_summary_mv",
+          "key_hmac": "f929f002c32f2836e3d508b757b4bf8c1313363bfd04c88e49c45ccd77cfe449",
+          "action": "REFRESH_MATVIEW",
+          "check_types": [
+            "DERIVED_CONSISTENT"
+          ],
+          "passed": true
+        }
+      ],
+      "chain_anchor": {
+        "seq": 5,
+        "event_hash": "6b1557ccd55bec034956be1d04e4c0f981bdc261909cb8aacf610fd1402d4d1f"
+      },
+      "issued_at": "2026-11-04T10:16:00+05:30"
+    },
+    "bundle_canonical": "{\"bundle_version\":\"1\",\"chain_anchor\":{\"event_hash\":\"6b1557ccd55bec034956be1d04e4c0f981bdc261909cb8aacf610fd1402d4d1f\",\"seq\":5},\"execution\":{\"committed_at\":\"2026-11-04T10:15:30.123456Z\",\"mode\":\"LIVE\",\"run_id\":\"00000000-0000-4000-8000-0000000000c1\",\"step_counts\":{\"APPLIED\":2,\"FAILED\":0,\"SKIPPED\":1}},\"issued_at\":\"2026-11-04T04:46:00.000000Z\",\"leaf_count\":5,\"merkle_root\":\"e3fcd8bd0770670bdc415adc42ccd4d8df89b2dbb0c2830c801145f5bce3e857\",\"plan_hash\":\"abababababababababababababababababababababababababababababababab\",\"plan_id\":\"00000000-0000-4000-8000-0000000000a1\",\"record_set_hash\":\"efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef\",\"signing_key_id\":\"4c2fada436d2148b\",\"snapshot_fingerprint\":\"cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd\",\"verification\":{\"checks\":[{\"check_type\":\"RESIDUAL_VALUE_SCAN\",\"column\":null,\"expected\":{\"residual_hits\":[]},\"observed\":{\"residual_hits\":[]},\"passed\":true,\"step_order\":null,\"table\":null},{\"check_type\":\"ROW_ABSENT\",\"column\":null,\"expected\":{\"count\":0},\"observed\":{\"count\":0},\"passed\":true,\"step_order\":1,\"table\":\"app.customer\"}],\"status\":\"PASSED\"}}",
+    "bundle_sha256": "8c2244b9d4dbd435f39f3910a9c147f73349e39397154b269654ddbfc34b402f",
+    "merkle_root": "e3fcd8bd0770670bdc415adc42ccd4d8df89b2dbb0c2830c801145f5bce3e857",
+    "leaves_canonical": "[{\"action\":\"ANONYMIZE_ROWS\",\"check_types\":[\"COLUMNS_ANONYMIZED\",\"RESIDUAL_VALUE_SCAN\"],\"key_hmac\":\"9db78be97846f105225d6d08f9f78dabb69a39f6ca5218d5069b1ce4760f1407\",\"passed\":true,\"table\":\"app.support_ticket\"},{\"action\":\"DELETE_ROWS\",\"check_types\":[\"ROW_ABSENT\"],\"key_hmac\":\"20b3e20e7e780f07f2a42c11fbf6d961b4abe8c53f5b3778ab6e94d87e1b3a4b\",\"passed\":true,\"table\":\"app.customer\"},{\"action\":\"EXPECT_CASCADE\",\"check_types\":[\"CASCADE_COMPLETE\"],\"key_hmac\":\"a84007c5c812d2cfa9648ea187d52b1300fad3792e45254a7f4c6cac133f6d0f\",\"passed\":true,\"table\":\"app.order\"},{\"action\":\"NULLIFY_REFERENCE\",\"check_types\":[\"REFERENCE_NULLIFIED\"],\"key_hmac\":\"3501c5d42d4f148c2c47600c89b1a92dfe98dd98ae3d6bc21bcd1da5990634ea\",\"passed\":false,\"table\":\"app.review\"},{\"action\":\"REFRESH_MATVIEW\",\"check_types\":[\"DERIVED_CONSISTENT\"],\"key_hmac\":\"f929f002c32f2836e3d508b757b4bf8c1313363bfd04c88e49c45ccd77cfe449\",\"passed\":true,\"table\":\"app.order_summary_mv\"}]",
+    "signature_b64": "ATM9KyBrX70yZDB6L3KKavoLlrtw+rJDPp5xiqeF5t29IdR4F4tbNJx2aVEGoxblyWNfT1fpdg+CTdFu904UCg==",
+    "export_sha256": "47c220a7bd8fc7fb46c24056fcd5499b09091371471d9e9fb0b5c2f5fb79affd"
+  }
+}

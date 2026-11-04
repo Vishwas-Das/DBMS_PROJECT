@@ -110,3 +110,12 @@ name = "Executor is independent of planner internals and discovery"
 type = "forbidden"
 source_modules = ["lae.executor"]
 forbidden_modules = ["lae.discovery", "lae.planner", "lae.lineage", "lae.verification"]
+
+[[tool.importlinter.contracts]]
+name = "Audit depends only on contracts, errors, cryptography and stdlib"
+type = "forbidden"
+source_modules = ["lae.audit"]
+forbidden_modules = [
+    "lae.discovery", "lae.lineage", "lae.planner", "lae.executor", "lae.verification",
+    "networkx", "sqlglot", "pydantic",
+]
