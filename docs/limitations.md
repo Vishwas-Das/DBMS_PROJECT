@@ -25,6 +25,7 @@ This page lists what LAE does **not** do, could not verify, or does only partly.
 
 ## 4. Verification
 16. **The residual scan matches whole normalised values only** (EXACT, LOWER_TRIM = ASCII whitespace trim + ASCII lowercase, DIGITS_ONLY). Not detected: substrings in free text, Unicode case variants (`É` vs `é`), encodings (base64, URL-encoding), hashes, encrypted values, transformed or concatenated values, array columns.
+17a. **Non-unique identifiers are not residual-scanned.** A probe whose value also occurs in another row of the subject-root table (e.g. two customers with the same name) is excluded at planning time, and the count is recorded as `ambiguous_probes_excluded`. Without this, another person's identical name made correct erasures FAILED (found in the live frontend run, see screenshot 05 and CR frontend-engineer-2). The cost is that a surviving copy of a *shared* name is not detected. Unique identifiers (email, phone) are still scanned.
 17. With zero probes the residual scan passes vacuously. Hits inside a legally retained table are reported as `retained_hits` and do not fail the check (per-table granularity).
 18. **Residual counts are matches, not distinct rows**, because one row can match several normalisations. Pass/fail is unaffected. Benchmarks label the number as matches.
 19. **EMBEDDING_ABSENT is key-based.** The vector-digest comparison was deferred, so embeddings of the subject stored under unrelated keys are not detected. Information memorised in model weights is out of scope.
