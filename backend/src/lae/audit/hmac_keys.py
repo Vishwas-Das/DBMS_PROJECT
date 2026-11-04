@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import string
 from typing import NoReturn
 
 from lae.audit.canonical import canonical_json
@@ -21,13 +22,24 @@ from lae.errors import ConfigurationError, ValidationError
 MIN_KEY_BYTES = 32
 _ASCII_DIGITS = frozenset("0123456789")
 
+LOWER_TRIM_STRIP_CHARS = "".join(chr(c) for c in (0x20, 0x09, 0x0A, 0x0D, 0x0C, 0x0B))
+"""Characters removed from both ends by ``LOWER_TRIM``: space, TAB, LF, CR, FF, VT (U+000B)."""
+
+_ASCII_LOWER = str.maketrans(string.ascii_uppercase, string.ascii_lowercase)
+
 
 def normalize(value: str | int, normalization: Normalization = Normalization.EXACT) -> str:
-    """Return the text that is fed to the HMAC for ``value``.
+    r"""Return the text that is fed to the HMAC for ``value``.
 
     - ints (not bools) are rendered as their decimal string first;
     - ``EXACT``: unchanged;
-    - ``LOWER_TRIM``: ``value.strip().lower()`` (Python semantics: strips all Unicode whitespace);
+    - ``LOWER_TRIM``: ASCII-only and locale-independent (CR verification-crypto-engineer-1 §5):
+      strip exactly the six characters in :data:`LOWER_TRIM_STRIP_CHARS` (space, TAB, LF, CR,
+      FF, VT) from both ends, then map only ``A-Z`` to ``a-z``. Every other character,
+      including NBSP, other Unicode spaces and non-ASCII letters such as ``"É"``, is left
+      unchanged. The SQL twin used by ``hmac_match_count`` is
+      ``translate(btrim(col, E' \t\n\r\f\x0B'), 'ABC...Z', 'abc...z')``. PostgreSQL has no
+      ``\v`` escape (``E'\v'`` is a literal ``v``), so VT must be written ``\x0B`` or ``\013``;
     - ``DIGITS_ONLY``: keeps only the ASCII digits ``0-9`` (so ``"+1 (555) 010-9999"`` becomes
       ``"15550109999"``). Non-ASCII digit characters are dropped, matching SQL ``[^0-9]``.
     """
@@ -37,7 +49,7 @@ def normalize(value: str | int, normalization: Normalization = Normalization.EXA
     if normalization is Normalization.EXACT:
         return text
     if normalization is Normalization.LOWER_TRIM:
-        return text.strip().lower()
+        return text.strip(LOWER_TRIM_STRIP_CHARS).translate(_ASCII_LOWER)
     if normalization is Normalization.DIGITS_ONLY:
         return "".join(ch for ch in text if ch in _ASCII_DIGITS)
     raise ValidationError(f"unsupported normalization {normalization!r}")  # pragma: no cover

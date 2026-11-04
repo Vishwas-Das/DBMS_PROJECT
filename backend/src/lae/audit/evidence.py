@@ -44,12 +44,15 @@ from uuid import UUID
 
 from lae.audit.canonical import canonical_json
 from lae.audit.hashchain import is_hex64, verify_chain
+from lae.audit.hmac_keys import HmacKeyring
 from lae.audit.merkle import MerkleTree
 from lae.audit.signing import Signer, public_key_id, verify_signature
 from lae.contracts.enums import (
+    UNVERIFIABLE_CATEGORIES,
     CheckType,
     ExecutionMode,
     ExecutionStatus,
+    LineageLevel,
     PlanAction,
     StepStatus,
     VerificationStatus,
@@ -60,6 +63,8 @@ from lae.contracts.types import (
     ErasurePlan,
     EvidenceLeaf,
     ExecutionResult,
+    PlanItem,
+    RecordKey,
     VerificationReport,
 )
 from lae.errors import SignatureError, ValidationError
@@ -271,6 +276,50 @@ def build_evidence(
         signing_key_id=signer.key_id,
         issued_at=issued_at,
     )
+
+
+# ------------------------------------------------------------------ leaves
+
+
+def _item_verified(item: PlanItem, bound: Sequence[CheckResult]) -> bool:
+    # Same rule as lae.verification.outcome.item_verified (CR lead-1 §3); audit must not import
+    # lae.verification, so it is restated here and kept equal by a unit test.
+    if item.category in UNVERIFIABLE_CATEGORIES:
+        return False
+    return bool(bound) and all(c.passed for c in bound)
+
+
+def leaves_from_verification(
+    plan: ErasurePlan, report: VerificationReport, keyring: HmacKeyring
+) -> list[EvidenceLeaf]:
+    """Evidence leaves for every plan item, sorted by canonical bytes (the bundle order).
+
+    - RECORD-level item: one leaf per record key, ``key_hmac = keyring.key_digest(RecordKey(
+      item.table, item.key_columns, key))``. ``PlanItem`` does not carry ``is_predicate``, so
+      keys of tables without a primary key are digested with ``is_predicate=False``.
+    - TABLE-level item: a single leaf with ``key_hmac = keyring.digest(item.table.qualified())``
+      (EXACT normalization).
+    - ``check_types``: the distinct check types bound to the item (``step_order``);
+      ``passed``: the item counts as verified (verifiable category, at least one bound check,
+      all bound checks passed). SCHEDULE / MANUAL_REVIEW / UNRESOLVED items are never passed.
+
+    Raw key values are consumed only inside the HMAC; nothing else of them reaches a leaf.
+    """
+    leaves: list[EvidenceLeaf] = []
+    for item in plan.items:
+        bound = [c for c in report.checks if c.step_order == item.step_order]
+        types = tuple(sorted({c.check_type for c in bound}, key=lambda t: t.value))
+        passed = _item_verified(item, bound)
+        table = item.table.qualified()
+        if item.lineage_level is LineageLevel.TABLE:
+            digests = [keyring.digest(table)]
+        else:
+            digests = [
+                keyring.key_digest(RecordKey(item.table, item.key_columns, key))
+                for key in item.record_keys
+            ]
+        leaves.extend(EvidenceLeaf(table, d, item.action, types, passed) for d in digests)
+    return sorted(leaves, key=lambda lf: canonical_json(lf.as_canonical()))
 
 
 # ------------------------------------------------------------------ offline verification

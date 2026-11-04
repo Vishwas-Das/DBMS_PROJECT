@@ -66,7 +66,7 @@ The current contracts are `forbidden` lists. Proposal: add a `forbidden` contrac
    returns the leaves array. CLI: `lae verify-evidence bundle.json --public-key … [--leaves …] [--chain …]`.
 4. ACCEPTED. `AuditEventRecord.event_type` stays `str` in code. The doc is aligned.
 5. **DECIDED: LOWER_TRIM is ASCII-only on both sides.** Strip exactly `' \t\n\r\f\v'` and lowercase only `A–Z`.
-   SQL: `translate(btrim(col, E' \t\n\r\f\v'), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')`.
+   SQL: `translate(btrim(col, E' \t\n\r\f\x0B'), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')`. **Corrected 2026-11-04 (CR crypto-2 §1):** PostgreSQL has no `\v` escape, so VT must be `\x0B`.
    This is locale-independent and byte-identical to Python. Non-ASCII case variants are a documented limitation (risk R2).
    Owner: Crypto Eng changes `normalize()` in the verification task. DB Eng uses the SQL form in `hmac_match_count`.
 6. ACCEPTED: forbidden contract for `lae.audit` added to pyproject (Lead).
