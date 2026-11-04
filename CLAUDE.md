@@ -62,27 +62,28 @@ cd frontend; npm install; cd ..
 
 # database
 docker compose up -d db                       # pgvector/pgvector:pg16 on localhost:5433
-alembic -c backend\alembic.ini upgrade head
-lae db seed --scale small --seed 42           # app schema + ground_truth.json
+lae db upgrade                                # uses LAE_ADMIN_URL (migrations need the owner role)
+lae db seed --scale default --seed 42         # app schema + ground_truth.json + lae_app grants
 lae keys generate --out secrets\signing_key.pem
 
 # run
-uvicorn lae.api.app:app --reload --port 8000
+uvicorn lae.api.main:app --port 8000          # reads .env; runs as the non-superuser lae_app
 cd frontend; npm run dev                      # http://localhost:5173
-docker compose up --build                     # full stack
 
-# quality gates
-ruff check backend; ruff format --check backend
-mypy backend\src\lae
-lint-imports --config backend\pyproject.toml
-pytest backend\tests -m unit
-pytest backend\tests -m "integration or e2e"
-cd frontend; npm run typecheck; npm test; npm run gen:api
+# quality gates (from backend/)
+ruff check src tests; ruff format --check src tests
+mypy src\lae
+lint-imports
+pytest tests -m unit
+$env:LAE_TEST_DATABASE_URL="postgresql+psycopg://lae_owner:lae_owner_dev@localhost:5433/lae_test_lead"; pytest tests\integration\db tests\integration\services
+cd frontend; npm run typecheck; npm run lint; npm test -- --run; npm run build
 
 # workflow / evaluation
-lae erase --root customer --key 42 --dry-run
+lae erase --key 42                            # dry run only; add --live --yes to erase
 lae audit verify
-lae verify-evidence evidence.json --public-key secrets\signing_key.pub.pem
-lae bench run B1 --repeat 5 --seed 42
+lae audit export <request-id>                 # bundle.json, leaves.json, chain.json
+lae verify-evidence evidence_out\bundle.json --public-key secrets\signing_key.pub.pem --leaves evidence_out\leaves.json --chain evidence_out\chain.json
+python -m benchmarks.run --help               # see docs/benchmarking.md
 ```
-Environment variables: `LAE_DATABASE_URL`, `LAE_READER_URL`, `LAE_EXECUTOR_URL`, `LAE_TARGET_SCHEMAS=app`, `LAE_HMAC_KEY`, `LAE_SIGNING_KEY_PATH`.
+Environment variables (see `.env.example`): `LAE_DATABASE_URL` (lae_app), `LAE_ADMIN_URL` (lae_owner: migrations/seed), `LAE_READER_URL`, `LAE_TARGET_SCHEMAS=app`, `LAE_HMAC_KEY`, `LAE_SIGNING_KEY_PATH`, `LAE_API_TOKEN` (≥ 24 chars), `LAE_REQUIRE_FOUR_EYES`.
+Integration tests: each workstream uses its own DB `lae_test_<suffix>` via `LAE_TEST_DATABASE_URL`, because the fixtures drop schemas.

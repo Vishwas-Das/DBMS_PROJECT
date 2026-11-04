@@ -299,7 +299,7 @@ class LaeServices:
         )
 
     def schema_graph(self, level: str) -> SchemaGraphOut:
-        sid = P.latest_or_new_snapshot(self.rt, "reader")
+        sid = P.latest_snapshot(self.rt)  # read path: never creates a snapshot (review M6)
         with session_scope(self.rt.reader, read_only=True) as s:
             return self._schema_graph(s, sid, level)
 

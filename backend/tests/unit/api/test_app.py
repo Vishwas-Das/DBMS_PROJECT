@@ -30,6 +30,10 @@ class StubServices:
                 raise StalePlanError("plan is stale", details={"tables": ["app.purchase_order"]})
             if name == "benchmark_runs":
                 return []
+            if name == "acknowledge_conflict":
+                from lae.errors import PlanError
+
+                raise PlanError("not acknowledgeable", code="CONFLICT_NOT_ACKNOWLEDGEABLE")
             raise RuntimeError("boom with secret alice@example.test")
 
         return method
@@ -112,3 +116,12 @@ def test_openapi_lists_brief_endpoints(client: TestClient) -> None:
         "/api/health",
     ]:
         assert p in paths, p
+
+
+def test_unlisted_domain_codes_map_by_family_not_500(client: TestClient) -> None:
+    r = client.post(
+        f"/api/erasure-plans/{uuid4()}/conflicts/{uuid4()}/acknowledge",
+        headers={"X-LAE-Token": TOKEN},
+    )
+    assert r.status_code == 409
+    assert r.json()["error"]["code"] == "CONFLICT_NOT_ACKNOWLEDGEABLE"

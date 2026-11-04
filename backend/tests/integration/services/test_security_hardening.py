@@ -249,3 +249,16 @@ def test_hmac_subkeys_are_domain_separated(env: dict[str, Any]) -> None:
     assert len(keys) == 3 and master not in keys
     assert rt.probe_key != rt.pseudonym_key
     assert rt.keyring.digest("42") != rt.probe_keyring.digest("42")
+
+
+def test_schema_graph_get_never_creates_a_snapshot(env: dict[str, Any]) -> None:
+    engine, c = env["engine"], env["client"]
+    with engine.begin() as conn:
+        n0 = conn.execute(sa.text("SELECT count(*) FROM lae.lineage_snapshot")).scalar_one()
+    r = c.get("/api/lineage/schema")
+    with engine.connect() as conn:
+        n1 = conn.execute(sa.text("SELECT count(*) FROM lae.lineage_snapshot")).scalar_one()
+    assert n1 == n0  # a GET must not write
+    assert r.status_code in (200, 404)
+    if n0 == 0:
+        assert r.status_code == 404

@@ -79,6 +79,19 @@ def _envelope(
     )
 
 
+def _status_for_class(exc: LaeError) -> int:
+    """Fallback for codes not listed above, by exception family (never 500 for domain refusals)."""
+    from lae.errors import ExecutionError, NotFoundError, PlanError, ValidationError
+
+    if isinstance(exc, NotFoundError):
+        return 404
+    if isinstance(exc, ValidationError):
+        return 422
+    if isinstance(exc, PlanError | ExecutionError):
+        return 409
+    return 500
+
+
 class AuthError(LaeError):
     default_code = "UNAUTHORIZED"
 
@@ -159,7 +172,7 @@ def create_app(
 
     @app.exception_handler(LaeError)
     async def lae_error(_: Request, exc: LaeError) -> JSONResponse:
-        status = STATUS_BY_CODE.get(exc.code, 500)
+        status = STATUS_BY_CODE.get(exc.code) or _status_for_class(exc)
         if status >= 500:
             log.error("lae_error", extra={"code": exc.code})
         return _envelope(status, exc.code, exc.message, exc.details)
