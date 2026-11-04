@@ -30,3 +30,7 @@ db/fixtures/out/
 # editors
 .vscode/
 .idea/
+
+# runtime artefacts
+var/
+evidence_out/

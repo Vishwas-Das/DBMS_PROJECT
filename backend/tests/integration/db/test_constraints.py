@@ -200,7 +200,7 @@ TEMPLATES: dict[str, Template] = {
         "entity_type": "plan",
         "actor": "tester",
         "payload_canonical": "{}",
-        "prev_hash": H,
+        "prev_hash": hx(),  # unique: migration 0003 forbids two successors of one event
         "event_hash": hx(),
     },
     "signing_key": lambda c, g: {
@@ -436,6 +436,11 @@ def test_check_rejects(
 
 # (table, column overrides copied from an existing graph row, expected unique name)
 UNIQUE_CASES: list[tuple[str, Callable[[Connection, Graph], dict[str, Any]], str]] = [
+    (  # migration 0003: the audit chain may never fork
+        "audit_event",
+        lambda c, g: {"prev_hash": _col(c, "audit_event", "prev_hash", g["audit_seq"])},
+        "uq_audit_event_prev_hash",
+    ),
     (
         "catalog_table",
         lambda c, g: {"table_name": _col(c, "catalog_table", "table_name", g["table"])},

@@ -18,13 +18,14 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from lae.audit import hashchain
 from lae.audit.canonical import canonical_json
 from lae.contracts.enums import AuditEventType
 from lae.contracts.types import AuditEventRecord
-from lae.errors import AuditChainBroken, ValidationError
+from lae.errors import AuditChainBroken, SerializationConflict, ValidationError
 
 CHAIN_LOCK_KEY = "lae.audit_chain"
 
@@ -81,6 +82,10 @@ class PgAuditSink:
         self._chain = chain
         self._clock = clock
 
+    @staticmethod
+    def _insert(s: Session, params: dict[str, Any]) -> None:
+        s.execute(_INSERT_SQL, params)
+
     def append(
         self,
         event_type: AuditEventType,
@@ -122,21 +127,31 @@ class PgAuditSink:
         if seq <= int(head_seq):
             raise AuditChainBroken("audit sequence is behind the chain head", details={"seq": seq})
         event_hash = self._chain.next_hash(prev_hash, seq, etype.value, payload_canonical)
-        s.execute(
-            _INSERT_SQL,
-            {
-                "seq": seq,
-                "event_id": uuid4(),
-                "occurred_at": occurred_at,
-                "event_type": etype.value,
-                "entity_type": entity_type,
-                "entity_id": entity_id,
-                "actor": actor,
-                "payload_canonical": payload_canonical,
-                "prev_hash": prev_hash,
-                "event_hash": event_hash,
-            },
-        )
+        try:
+            self._insert(
+                s,
+                {
+                    "seq": seq,
+                    "event_id": uuid4(),
+                    "occurred_at": occurred_at,
+                    "event_type": etype.value,
+                    "entity_type": entity_type,
+                    "entity_id": entity_id,
+                    "actor": actor,
+                    "payload_canonical": payload_canonical,
+                    "prev_hash": prev_hash,
+                    "event_hash": event_hash,
+                },
+            )
+        except IntegrityError as exc:
+            # QA D1: a concurrent transaction appended a successor to the same head first
+            # (stale SERIALIZABLE snapshot). uq_audit_event_prev_hash refuses the fork; the
+            # caller's transaction must roll back and may be retried.
+            if "uq_audit_event_prev_hash" in str(exc.orig):
+                raise SerializationConflict(
+                    "audit chain head moved concurrently; retry", details={"seq": seq}
+                ) from None
+            raise
         return AuditEventRecord(
             seq=seq,
             event_type=etype.value,

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="340" viewBox="0 0 760 340" font-family="sans-serif" font-size="11">
+<rect width="760" height="340" fill="white"/>
+<text x="380.0" y="20" text-anchor="middle" font-size="14" font-weight="bold">Erasure coverage (direct SQL, S1)</text>
+<line x1="70" x2="740" y1="260.0" y2="260.0" stroke="#e5e5e5"/>
+<text x="64" y="264.0" text-anchor="end">0</text>
+<line x1="70" x2="740" y1="216.0" y2="216.0" stroke="#e5e5e5"/>
+<text x="64" y="220.0" text-anchor="end">0.2</text>
+<line x1="70" x2="740" y1="172.0" y2="172.0" stroke="#e5e5e5"/>
+<text x="64" y="176.0" text-anchor="end">0.4</text>
+<line x1="70" x2="740" y1="128.0" y2="128.0" stroke="#e5e5e5"/>
+<text x="64" y="132.0" text-anchor="end">0.6</text>
+<line x1="70" x2="740" y1="84.0" y2="84.0" stroke="#e5e5e5"/>
+<text x="64" y="88.0" text-anchor="end">0.8</text>
+<line x1="70" x2="740" y1="40.0" y2="40.0" stroke="#e5e5e5"/>
+<text x="64" y="44.0" text-anchor="end">1</text>
+<line x1="70" x2="70" y1="40" y2="260" stroke="#333"/><line x1="70" x2="740" y1="260" y2="260" stroke="#333"/>
+<rect x="92.3" y="171.9" width="54.8" height="88.1" fill="#8c8c8c"><title>B1 manual / small: 0.4</title></rect>
+<text x="119.7" y="168.9" text-anchor="middle" font-size="9">0.4</text>
+<rect x="151.9" y="190.6" width="54.8" height="69.4" fill="#4e79a7"><title>B2 FK-only / small: 0.315</title></rect>
+<text x="179.3" y="187.6" text-anchor="middle" font-size="9">0.315</text>
+<rect x="211.4" y="96.6" width="54.8" height="163.4" fill="#e15759"><title>LAE / small: 0.743</title></rect>
+<text x="238.8" y="93.6" text-anchor="middle" font-size="9">0.743</text>
+<text x="181.7" y="276" text-anchor="middle">small</text>
+<rect x="315.7" y="158.8" width="54.8" height="101.2" fill="#8c8c8c"><title>B1 manual / default: 0.46</title></rect>
+<text x="343.1" y="155.8" text-anchor="middle" font-size="9">0.46</text>
+<rect x="375.2" y="204.5" width="54.8" height="55.5" fill="#4e79a7"><title>B2 FK-only / default: 0.252</title></rect>
+<text x="402.6" y="201.5" text-anchor="middle" font-size="9">0.252</text>
+<rect x="434.8" y="94.7" width="54.8" height="165.3" fill="#e15759"><title>LAE / default: 0.751</title></rect>
+<text x="462.2" y="91.7" text-anchor="middle" font-size="9">0.751</text>
+<text x="405.0" y="276" text-anchor="middle">default</text>
+<rect x="539.0" y="154.2" width="54.8" height="105.8" fill="#8c8c8c"><title>B1 manual / large: 0.481</title></rect>
+<text x="566.4" y="151.2" text-anchor="middle" font-size="9">0.481</text>
+<rect x="598.6" y="207.5" width="54.8" height="52.5" fill="#4e79a7"><title>B2 FK-only / large: 0.239</title></rect>
+<text x="626.0" y="204.5" text-anchor="middle" font-size="9">0.239</text>
+<rect x="658.1" y="61.1" width="54.8" height="198.9" fill="#e15759"><title>LAE / large: 0.904</title></rect>
+<text x="685.5" y="58.1" text-anchor="middle" font-size="9">0.904</text>
+<text x="628.3" y="276" text-anchor="middle">large</text>
+<rect x="70" y="301" width="10" height="10" fill="#8c8c8c"/><text x="84" y="310">B1 manual</text>
+<rect x="240" y="301" width="10" height="10" fill="#4e79a7"/><text x="254" y="310">B2 FK-only</text>
+<rect x="410" y="301" width="10" height="10" fill="#e15759"/><text x="424" y="310">LAE</text>
+</svg>

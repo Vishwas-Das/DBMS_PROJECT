@@ -78,5 +78,5 @@ def downgrade() -> None:
     op.execute("ALTER TABLE lae.erasure_plan DROP CONSTRAINT ck_erasure_plan_approval_consistent")
     op.execute(
         "ALTER TABLE lae.erasure_plan ADD CONSTRAINT ck_erasure_plan_approval_consistent CHECK ("
-        f"(status IN ({APPROVED})) = (approved_at IS NOT NULL))"
-    )
+        f"(status IN ({APPROVED})) = (approved_at IS NOT NULL)) NOT VALID"
+    )  # NOT VALID: SUPERSEDED plans that legitimately kept approval history stay intact

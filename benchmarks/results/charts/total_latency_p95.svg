@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="340" viewBox="0 0 760 340" font-family="sans-serif" font-size="11">
+<rect width="760" height="340" fill="white"/>
+<text x="380.0" y="20" text-anchor="middle" font-size="14" font-weight="bold">Total latency per subject, p95 (S1)</text>
+<line x1="70" x2="740" y1="260.0" y2="260.0" stroke="#e5e5e5"/>
+<text x="64" y="264.0" text-anchor="end">0 ms</text>
+<line x1="70" x2="740" y1="216.0" y2="216.0" stroke="#e5e5e5"/>
+<text x="64" y="220.0" text-anchor="end">3667 ms</text>
+<line x1="70" x2="740" y1="172.0" y2="172.0" stroke="#e5e5e5"/>
+<text x="64" y="176.0" text-anchor="end">7335 ms</text>
+<line x1="70" x2="740" y1="128.0" y2="128.0" stroke="#e5e5e5"/>
+<text x="64" y="132.0" text-anchor="end">11002 ms</text>
+<line x1="70" x2="740" y1="84.0" y2="84.0" stroke="#e5e5e5"/>
+<text x="64" y="88.0" text-anchor="end">14669 ms</text>
+<line x1="70" x2="740" y1="40.0" y2="40.0" stroke="#e5e5e5"/>
+<text x="64" y="44.0" text-anchor="end">18336 ms</text>
+<line x1="70" x2="70" y1="40" y2="260" stroke="#333"/><line x1="70" x2="740" y1="260" y2="260" stroke="#333"/>
+<rect x="92.3" y="259.4" width="54.8" height="0.6" fill="#8c8c8c"><title>B1 manual / small: 48.55 ms</title></rect>
+<text x="119.7" y="256.4" text-anchor="middle" font-size="9">48.55</text>
+<rect x="151.9" y="257.9" width="54.8" height="2.1" fill="#4e79a7"><title>B2 FK-only / small: 172 ms</title></rect>
+<text x="179.3" y="254.9" text-anchor="middle" font-size="9">172</text>
+<rect x="211.4" y="210.0" width="54.8" height="50.0" fill="#e15759"><title>LAE / small: 4169 ms</title></rect>
+<text x="238.8" y="207.0" text-anchor="middle" font-size="9">4169</text>
+<text x="181.7" y="276" text-anchor="middle">small</text>
+<rect x="315.7" y="259.5" width="54.8" height="0.5" fill="#8c8c8c"><title>B1 manual / default: 39.08 ms</title></rect>
+<text x="343.1" y="256.5" text-anchor="middle" font-size="9">39.08</text>
+<rect x="375.2" y="257.0" width="54.8" height="3.0" fill="#4e79a7"><title>B2 FK-only / default: 250 ms</title></rect>
+<text x="402.6" y="254.0" text-anchor="middle" font-size="9">250</text>
+<rect x="434.8" y="235.7" width="54.8" height="24.3" fill="#e15759"><title>LAE / default: 2029 ms</title></rect>
+<text x="462.2" y="232.7" text-anchor="middle" font-size="9">2029</text>
+<text x="405.0" y="276" text-anchor="middle">default</text>
+<rect x="539.0" y="259.6" width="54.8" height="0.4" fill="#8c8c8c"><title>B1 manual / large: 31.74 ms</title></rect>
+<text x="566.4" y="256.6" text-anchor="middle" font-size="9">31.74</text>
+<rect x="598.6" y="257.1" width="54.8" height="2.9" fill="#4e79a7"><title>B2 FK-only / large: 240 ms</title></rect>
+<text x="626.0" y="254.1" text-anchor="middle" font-size="9">240</text>
+<rect x="658.1" y="40.0" width="54.8" height="220.0" fill="#e15759"><title>LAE / large: 18336 ms</title></rect>
+<text x="685.5" y="37.0" text-anchor="middle" font-size="9">18336</text>
+<text x="628.3" y="276" text-anchor="middle">large</text>
+<rect x="70" y="301" width="10" height="10" fill="#8c8c8c"/><text x="84" y="310">B1 manual</text>
+<rect x="240" y="301" width="10" height="10" fill="#4e79a7"/><text x="254" y="310">B2 FK-only</text>
+<rect x="410" y="301" width="10" height="10" fill="#e15759"/><text x="424" y="310">LAE</text>
+</svg>

@@ -1,0 +1,130 @@
+<#
+.SYNOPSIS
+  One-time local setup for LAE on Windows PowerShell 5.1+ (also works in PowerShell 7).
+
+.DESCRIPTION
+  1. .venv (Python 3.12) + `pip install -e backend[dev]`        (skip: -SkipInstall)
+  2. frontend `npm ci`                                         (skip: -SkipFrontend)
+  3. .env from .env.example if missing, with RANDOM secrets (LAE_HMAC_KEY, LAE_API_TOKEN).
+     Secrets are written to .env only, never printed.
+  4. docker compose up -d db, wait until the healthcheck reports healthy
+  5. scripts/create_test_dbs.py (idempotent: lae_test + lae_test_* on existing volumes)
+  6. alembic upgrade head on the target database
+  7. seed the synthetic dataset (default scale, seed 42)       (skip: -SkipSeed)
+  8. Ed25519 signing key in secrets\ if missing
+
+  -DatabaseUrl lets you point steps 6-7 at another database (for example a lae_test_* DB).
+#>
+[CmdletBinding()]
+param(
+    [switch]$SkipInstall,
+    [switch]$SkipFrontend,
+    [switch]$SkipSeed,
+    [switch]$SkipDocker,
+    [string]$Scale = "default",
+    [int]$Seed = 42,
+    [string]$DatabaseUrl = ""
+)
+$ErrorActionPreference = "Stop"
+$Repo = Split-Path -Parent $PSScriptRoot
+Set-Location $Repo
+$Py = Join-Path $Repo ".venv\Scripts\python.exe"
+
+function Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
+function Invoke-Checked {
+    param([string]$Exe, [string[]]$Arguments)
+    & $Exe @Arguments
+    if ($LASTEXITCODE -ne 0) { throw "command failed ($LASTEXITCODE): $Exe $($Arguments -join ' ')" }
+}
+function Find-Docker {
+    $cmd = Get-Command docker -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    $default = "C:\Program Files\Docker\Docker\resources\bin\docker.exe"
+    if (Test-Path $default) { return $default }
+    throw "docker not found (install Docker Desktop or add docker to PATH)"
+}
+function New-Secret { & $Py -c "import secrets; print(secrets.token_hex(32))" }
+
+# ---------------------------------------------------------------- 1. python
+if (-not (Test-Path $Py)) {
+    Step "creating .venv (Python 3.12)"
+    Invoke-Checked "py" @("-3.12", "-m", "venv", ".venv")
+}
+if (-not $SkipInstall) {
+    Step "pip install -e backend[dev]"
+    Invoke-Checked $Py @("-m", "pip", "install", "--upgrade", "pip")
+    Invoke-Checked $Py @("-m", "pip", "install", "-e", ".\backend[dev]")
+}
+
+# ---------------------------------------------------------------- 2. frontend
+if (-not $SkipFrontend) {
+    Step "npm ci (frontend)"
+    Push-Location frontend
+    try { Invoke-Checked "npm" @("ci") } finally { Pop-Location }
+}
+
+# ---------------------------------------------------------------- 3. .env
+$EnvFile = Join-Path $Repo ".env"
+if (-not (Test-Path $EnvFile)) {
+    Step "creating .env from .env.example with random secrets (not printed)"
+    $lines = Get-Content (Join-Path $Repo ".env.example")
+    $hmac = New-Secret
+    $token = New-Secret
+    $out = foreach ($l in $lines) {
+        if ($l -match '^LAE_HMAC_KEY=\s*$') { "LAE_HMAC_KEY=$hmac" }
+        elseif ($l -match '^LAE_API_TOKEN=\s*$') { "LAE_API_TOKEN=$token" }
+        else { $l }
+    }
+    # UTF-8 without BOM so pydantic-settings / docker compose read it cleanly
+    [System.IO.File]::WriteAllLines($EnvFile, [string[]]$out, (New-Object System.Text.UTF8Encoding($false)))
+} else {
+    Step ".env exists (left unchanged)"
+}
+
+# ---------------------------------------------------------------- 4. database container
+if (-not $SkipDocker) {
+    $Docker = Find-Docker
+    Step "docker compose up -d db"
+    Invoke-Checked $Docker @("compose", "up", "-d", "db")
+    Step "waiting for the db healthcheck"
+    $cid = (& $Docker compose ps -q db).Trim()
+    $deadline = (Get-Date).AddSeconds(120)
+    do {
+        $state = (& $Docker inspect -f "{{.State.Health.Status}}" $cid).Trim()
+        if ($state -eq "healthy") { break }
+        Start-Sleep -Seconds 2
+    } while ((Get-Date) -lt $deadline)
+    if ($state -ne "healthy") { throw "database did not become healthy (state: $state)" }
+    Write-Host "    db is healthy"
+}
+
+# ---------------------------------------------------------------- 5-7. schema + data
+Step "creating test databases (idempotent)"
+Invoke-Checked $Py @("scripts\create_test_dbs.py")
+
+$alembicArgs = @("-m", "alembic", "-c", "backend\alembic.ini")
+if ($DatabaseUrl) { $alembicArgs += @("-x", "url=$DatabaseUrl") }
+Step "alembic upgrade head"
+Invoke-Checked $Py ($alembicArgs + @("upgrade", "head"))
+
+if (-not $SkipSeed) {
+    Step "seeding synthetic dataset (scale=$Scale seed=$Seed)"
+    $seedArgs = @("-m", "db.fixtures.generator", "--scale", $Scale, "--seed", "$Seed")
+    if ($DatabaseUrl) { $seedArgs += @("--url", $DatabaseUrl) }
+    else {
+        # generator reads LAE_DATABASE_URL; take it from .env without echoing other values
+        $dbLine = Get-Content $EnvFile | Where-Object { $_ -match '^LAE_DATABASE_URL=' } | Select-Object -First 1
+        if ($dbLine) { $seedArgs += @("--url", $dbLine.Substring("LAE_DATABASE_URL=".Length)) }
+    }
+    Invoke-Checked $Py $seedArgs
+}
+
+# ---------------------------------------------------------------- 8. signing key
+$Key = Join-Path $Repo "secrets\signing_key.pem"
+if (-not (Test-Path $Key)) {
+    Step "generating Ed25519 signing key"
+    Invoke-Checked (Join-Path $Repo ".venv\Scripts\lae.exe") @("keys", "generate", "--out", $Key)
+} else {
+    Step "signing key exists (left unchanged)"
+}
+Step "setup complete. Next: scripts\start-backend.ps1 and scripts\start-frontend.ps1"

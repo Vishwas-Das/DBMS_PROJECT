@@ -96,6 +96,7 @@ from lae.errors import (
     LaeError,
     NotFoundError,
     SubjectNotFoundError,
+    TargetQueryError,
     ValidationError,
 )
 from lae.executor import execute_plan
@@ -370,9 +371,14 @@ def create_request(
             raise ValidationError("subject key arity does not match the subject root key")
         catalog = SnapshotRepo(s).load_catalog(snapshot_id)
         reader = PgTargetReader(s, catalog)
-        rows = reader.select_by_columns(
-            root.table, root.key_columns, [subject_key], select=root.key_columns
-        )
+        try:
+            rows = reader.select_by_columns(
+                root.table, root.key_columns, [subject_key], select=root.key_columns
+            )
+        except TargetQueryError:
+            # QA D2: a key that cannot be cast to the key column's type is invalid input (422),
+            # never a server or state error. The value is not echoed.
+            raise ValidationError("subject key does not match the subject root key type") from None
         if len(rows) != 1:
             raise SubjectNotFoundError("no such data subject")
         # review M4: canonicalise from the DB row ('42', '042' and 42 are the same subject)
@@ -682,7 +688,61 @@ def _allowed_sql(ctx: LineageContext) -> list[str]:
     return [a.definition_sql for a in ctx.artifacts if a.definition_sql]
 
 
+_EXECUTION_LOCK = "lae.live_execution"  # distinct from the audit sink's chain lock key
+
+
+@contextmanager
+def _live_execution_lock(rt: Runtime) -> Iterator[None]:
+    """Serialise LIVE executions BEFORE their SERIALIZABLE transaction takes its snapshot.
+
+    QA D1: two concurrent executions both read the same audit-chain head inside their
+    snapshots. uq_audit_event_prev_hash (migration 0003) makes a fork impossible, but then
+    *neither* run could commit. Holding a session-level advisory lock on a separate
+    connection for the whole execution means the second run starts after the first has
+    committed, sees a fresh snapshot, and fails cleanly (already executed / stale).
+    """
+    from sqlalchemy import text as sa_text
+
+    with rt.owner.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        conn.execute(sa_text("SELECT pg_advisory_lock(hashtext(:k))"), {"k": _EXECUTION_LOCK})
+        try:
+            yield
+        finally:
+            conn.execute(sa_text("SELECT pg_advisory_unlock(hashtext(:k))"), {"k": _EXECUTION_LOCK})
+
+
 def execute(
+    rt: Runtime, plan_id: UUID, mode: ExecutionMode, actor: str, *, auto_verify: bool = True
+) -> ExecutionOutcome:
+    if mode is ExecutionMode.LIVE:
+        with _live_execution_lock(rt):
+            outcome = _execute(rt, plan_id, mode, actor, auto_verify=False)
+        if auto_verify:  # verification + evidence run outside the execution lock
+            outcome = _verify_and_issue(rt, outcome, actor)
+        return outcome
+    return _execute(rt, plan_id, mode, actor, auto_verify=auto_verify)
+
+
+def _verify_and_issue(rt: Runtime, outcome: ExecutionOutcome, actor: str) -> ExecutionOutcome:
+    timings = dict(outcome.timings_ms)
+    with _timed(timings, "verification"):
+        vid = verify(rt, outcome.run_id, actor)
+    with _timed(timings, "evidence"):
+        eid = issue_evidence(rt, outcome.plan_id, actor)
+    return ExecutionOutcome(
+        outcome.run_id,
+        outcome.plan_id,
+        outcome.mode,
+        outcome.status,
+        outcome.result,
+        None,
+        vid,
+        eid,
+        timings,
+    )
+
+
+def _execute(
     rt: Runtime, plan_id: UUID, mode: ExecutionMode, actor: str, *, auto_verify: bool = True
 ) -> ExecutionOutcome:
     timings: dict[str, int] = {}

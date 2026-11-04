@@ -48,7 +48,10 @@ def env(
     Signer.generate().save(tmp_path / "signing.pem")
     rt = Runtime.from_settings(
         Settings(
+            _env_file=None,  # QA D3: never pick up the repo .env (it points at the dev DB)
             database_url=migrated_url,
+            reader_url=migrated_url,
+            api_token=None,
             hmac_key="h" * 32,
             signing_key_path=tmp_path / "signing.pem",
             target_schemas=["app"],

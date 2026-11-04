@@ -37,7 +37,7 @@ def test_baseline_creates_every_table(migrated_db: Engine) -> None:
     with migrated_db.connect() as conn:
         assert _tables(conn, "lae") == LAE_TABLES | {"alembic_version"}
         version = conn.execute(text("SELECT version_num FROM lae.alembic_version")).scalar_one()
-    assert version == "0002_security_hardening"  # head (0002 = security hardening)
+    assert version == "0003_audit_chain_linear"  # head (0002 hardening, 0003 linear chain)
     assert len(LAE_TABLES) == 22
 
 

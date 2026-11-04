@@ -50,6 +50,8 @@ class AuditEvent(Base):
         hex_check("prev_hash"),
         hex_check("event_hash"),
         Index(None, "entity_type", "entity_id"),
+        # migration 0003 (QA D1): one successor per event, so the chain can never fork
+        Index("uq_audit_event_prev_hash", "prev_hash", unique=True),
     )
 
 

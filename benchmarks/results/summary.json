@@ -1,0 +1,4506 @@
+{
+  "duration_s": 1628.2,
+  "environment": {
+    "captured_at": "2026-11-04T18:09:42+00:00",
+    "cpu_model": "Intel(R) Core(TM) 5 120U",
+    "database": "lae_test_bench",
+    "docker_mem_bytes": 8131489792,
+    "docker_ncpu": 12,
+    "docker_os": "Docker Desktop",
+    "docker_server_version": "29.9.2",
+    "extensions": {
+      "pgcrypto": "1.3",
+      "plpgsql": "1.0",
+      "vector": "0.8.7"
+    },
+    "git_commit": "99082c5990177c20678b4df8baaaec9c300beb24",
+    "git_dirty": true,
+    "git_dirty_paths": [
+      ".github/",
+      "backend/tests/e2e/",
+      "benchmarks/",
+      "db/init/01_init.sql",
+      "docs/change_requests/qa-devops-engineer-1.md",
+      "scripts/",
+      "var/"
+    ],
+    "logical_cores": 12,
+    "machine": "AMD64",
+    "os": "Windows-11-10.0.26300-SP0",
+    "os_release": "11",
+    "packages": {
+      "alembic": "1.20.1",
+      "cryptography": "50.0.2",
+      "fastapi": "0.162.0",
+      "lae": "0.1.0",
+      "networkx": "3.7",
+      "psycopg": "3.3.8",
+      "pydantic": "2.14.2",
+      "sqlalchemy": "2.1.8",
+      "sqlglot": "30.29.0"
+    },
+    "pg_settings": {
+      "default_transaction_isolation": "read committed",
+      "effective_cache_size": "4GB",
+      "fsync": "on",
+      "jit": "on",
+      "maintenance_work_mem": "64MB",
+      "max_connections": "100",
+      "random_page_cost": "4",
+      "shared_buffers": "128MB",
+      "synchronous_commit": "on",
+      "work_mem": "4MB"
+    },
+    "pgcrypto_version": "1.3",
+    "pgvector_version": "0.8.7",
+    "physical_cores": 10,
+    "postgres_version": "16.15 (Debian 16.15-1.pgdg12+2)",
+    "postgres_version_full": "PostgreSQL 16.15 (Debian 16.15-1.pgdg12+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit",
+    "python": "3.12.10",
+    "python_implementation": "CPython",
+    "ram_bytes": 16781463552
+  },
+  "generated_at": "2026-11-04T18:36:48+00:00",
+  "merged_from": [
+    "2026-11-04T18:36:48+00:00"
+  ],
+  "methods": {
+    "BASELINE_1_MANUAL": "hard-coded DELETEs of customer_address, loyalty_account, ticket_message (via the subject's tickets), support_ticket, document, customer in ONE transaction; no knowledge of derived artifacts, caches, embeddings, hidden copies or retention",
+    "BASELINE_2_FK_ONLY": "lae.discovery declared-FK edges only -> lae record discovery (BFS downstream) -> DELETE every discovered SUBJECT_ROOT/OWNED/SHARED row child-first in ONE transaction; other subjects' rows are not deleted (their SET NULL FK handles them)",
+    "PROPOSED_LAE": "lae.services.pipeline: create_request -> run_discovery -> generate_plan -> acknowledge acknowledgeable BLOCKING conflicts -> approve(plan_hash) -> execute LIVE (SERIALIZABLE, drift re-check) -> verify -> issue_evidence"
+  },
+  "partial_reruns": [
+    {
+      "generated_at": "2026-11-04T18:55:08+00:00",
+      "git_commit": "99082c5990177c20678b4df8baaaec9c300beb24",
+      "runs": [
+        "default/PROPOSED_LAE/S1",
+        "default/PROPOSED_LAE/S2_after_feedback",
+        "large/PROPOSED_LAE/S1",
+        "large/PROPOSED_LAE/S2_after_feedback",
+        "small/PROPOSED_LAE/S1",
+        "small/PROPOSED_LAE/S2_after_feedback"
+      ]
+    }
+  ],
+  "raw_files": [
+    "20261104T183903Z_raw.json",
+    "20261104T183903Z_raw.csv"
+  ],
+  "runs": [
+    {
+      "confirmed_feedback_edges": 0,
+      "lae_size_after_bytes": 868352,
+      "lae_size_before_bytes": 868352,
+      "lae_size_delta_bytes": 0,
+      "method": "BASELINE_1_MANUAL",
+      "metrics": {
+        "ambiguous_probes_excluded": 0,
+        "audit_events_per_request_mean": 0.0,
+        "blocked": 0,
+        "committed": 1,
+        "discovery_p50_ms": 16.317,
+        "discovery_p95_ms": 25.596,
+        "erasure_coverage": 0.400387,
+        "erasure_coverage_committed": 0.833333,
+        "execution_p50_ms": 13.163,
+        "execution_p95_ms": 22.044,
+        "f1": 0.466077,
+        "failed": 19,
+        "lae_schema_bytes_delta": 0,
+        "precision": 0.951807,
+        "recall": 0.308594,
+        "recall_fk_truth": 0.379808,
+        "residual_hmac_rows": 69,
+        "residual_substring_rows": 85,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "subjects": 20,
+        "total_p50_ms": 29.739,
+        "total_p95_ms": 48.555,
+        "unrelated_damage": 0
+      },
+      "params": {
+        "method": "BASELINE_1_MANUAL",
+        "row_counts": {
+          "customer": 100,
+          "customer_address": 108,
+          "customer_profile_cache": 35,
+          "document": 50,
+          "document_embedding": 50,
+          "loyalty_account": 62,
+          "marketing_event_log": 300,
+          "order_line": 737,
+          "payment": 194,
+          "product": 50,
+          "purchase_order": 300,
+          "shipment": 223,
+          "support_ticket": 100,
+          "ticket_message": 276
+        },
+        "scale": "small",
+        "seed": 42,
+        "set": "S1",
+        "subjects": 20
+      },
+      "prepare_ms": {},
+      "scale": "small",
+      "scenario": "B5",
+      "set": "S1",
+      "setup_ms": {
+        "migrate_ms": 996.0,
+        "seed_ms": 1229.0,
+        "vacuum_analyze_ms": 390.1
+      },
+      "summary": {
+        "ambiguous_probes_excluded_total": 0,
+        "audit_events_per_request": {
+          "max": 0,
+          "mean": 0.0,
+          "min": 0,
+          "n": 20,
+          "p50": 0.0,
+          "p95": 0.0
+        },
+        "coverage": {
+          "exact": "207/517",
+          "value": 0.400387
+        },
+        "coverage_by_category": {
+          "anonymized": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 56,
+            "value": 0.0
+          },
+          "derived": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 46,
+            "value": 0.0
+          },
+          "hidden": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 50,
+            "value": 0.0
+          },
+          "owned_deleted": {
+            "correct": 5,
+            "exact": "5/158",
+            "total": 158,
+            "value": 0.031646
+          },
+          "references": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 5,
+            "value": 0.0
+          },
+          "retained": {
+            "correct": 202,
+            "exact": "1/1",
+            "total": 202,
+            "value": 1.0
+          }
+        },
+        "coverage_by_stratum": {
+          "hidden=N,shared=N": {
+            "correct": 5,
+            "coverage": {
+              "exact": "5/6",
+              "value": 0.833333
+            },
+            "subjects": 1,
+            "total": 6
+          },
+          "hidden=Y,shared=N": {
+            "correct": 107,
+            "coverage": {
+              "exact": "107/278",
+              "value": 0.384892
+            },
+            "subjects": 10,
+            "total": 278
+          },
+          "hidden=Y,shared=Y": {
+            "correct": 95,
+            "coverage": {
+              "exact": "95/233",
+              "value": 0.407725
+            },
+            "subjects": 9,
+            "total": 233
+          }
+        },
+        "coverage_committed_only": {
+          "exact": "5/6",
+          "value": 0.833333
+        },
+        "coverage_units": {
+          "correct": 207,
+          "total": 517
+        },
+        "discovery": {
+          "f1": {
+            "exact": "158/339",
+            "value": 0.466077
+          },
+          "fn": 354,
+          "fp": 8,
+          "precision": {
+            "exact": "79/83",
+            "value": 0.951807
+          },
+          "recall": {
+            "exact": "79/256",
+            "value": 0.308594
+          },
+          "recall_fk_truth": {
+            "exact": "79/208",
+            "value": 0.379808
+          },
+          "tp": 158
+        },
+        "hidden_truth_mismatches": 0,
+        "lae_outcomes": {},
+        "lae_rows_added_per_request": {
+          "max": 0,
+          "mean": 0.0,
+          "min": 0,
+          "n": 20,
+          "p50": 0.0,
+          "p95": 0.0
+        },
+        "latency_ms": {
+          "discovery": {
+            "max": 26.887,
+            "mean": 16.322,
+            "min": 9.886,
+            "n": 20,
+            "p50": 16.317,
+            "p95": 25.596
+          },
+          "execution": {
+            "max": 30.594,
+            "mean": 14.596,
+            "min": 8.52,
+            "n": 20,
+            "p50": 13.163,
+            "p95": 22.044
+          },
+          "total": {
+            "max": 48.585,
+            "mean": 30.975,
+            "min": 19.286,
+            "n": 20,
+            "p50": 29.739,
+            "p95": 48.555
+          }
+        },
+        "other_customers_deleted": 0,
+        "residual_hmac_rows": 69,
+        "residual_hmac_rows_before": 70,
+        "residual_probes_total": 0,
+        "residual_substring_rows": 85,
+        "residual_substring_rows_before": 86,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "shared_rows_modified": 0,
+        "status_counts": {
+          "COMMITTED": 1,
+          "FAILED": 19
+        },
+        "subjects": 20,
+        "subjects_with_ambiguous_probes": 0,
+        "subjects_with_zero_residual": 0,
+        "unrelated_damage": 0
+      },
+      "wall_ms": 9326.7
+    },
+    {
+      "confirmed_feedback_edges": 0,
+      "lae_size_after_bytes": 868352,
+      "lae_size_before_bytes": 868352,
+      "lae_size_delta_bytes": 0,
+      "method": "BASELINE_2_FK_ONLY",
+      "metrics": {
+        "ambiguous_probes_excluded": 0,
+        "audit_events_per_request_mean": 0.0,
+        "blocked": 0,
+        "committed": 20,
+        "discovery_p50_ms": 40.595,
+        "discovery_p95_ms": 45.766,
+        "erasure_coverage": 0.31528,
+        "erasure_coverage_committed": 0.31528,
+        "execution_p50_ms": 72.891,
+        "execution_p95_ms": 93.585,
+        "f1": 0.896552,
+        "failed": 0,
+        "lae_schema_bytes_delta": 0,
+        "precision": 1.0,
+        "recall": 0.8125,
+        "recall_fk_truth": 1.0,
+        "residual_hmac_rows": 50,
+        "residual_substring_rows": 57,
+        "retention_violations": 258,
+        "shared_rows_deleted": 12,
+        "subjects": 20,
+        "total_p50_ms": 137.383,
+        "total_p95_ms": 171.795,
+        "unrelated_damage": 0
+      },
+      "params": {
+        "method": "BASELINE_2_FK_ONLY",
+        "row_counts": {
+          "customer": 100,
+          "customer_address": 108,
+          "customer_profile_cache": 35,
+          "document": 50,
+          "document_embedding": 50,
+          "loyalty_account": 62,
+          "marketing_event_log": 300,
+          "order_line": 737,
+          "payment": 194,
+          "product": 50,
+          "purchase_order": 300,
+          "shipment": 223,
+          "support_ticket": 100,
+          "ticket_message": 276
+        },
+        "scale": "small",
+        "seed": 42,
+        "set": "S1",
+        "subjects": 20
+      },
+      "prepare_ms": {
+        "snapshot": 99.0
+      },
+      "scale": "small",
+      "scenario": "B5",
+      "set": "S1",
+      "setup_ms": {
+        "migrate_ms": 936.1,
+        "seed_ms": 1295.1,
+        "vacuum_analyze_ms": 355.7
+      },
+      "summary": {
+        "ambiguous_probes_excluded_total": 0,
+        "audit_events_per_request": {
+          "max": 0,
+          "mean": 0.0,
+          "min": 0,
+          "n": 20,
+          "p50": 0.0,
+          "p95": 0.0
+        },
+        "coverage": {
+          "exact": "163/517",
+          "value": 0.31528
+        },
+        "coverage_by_category": {
+          "anonymized": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 56,
+            "value": 0.0
+          },
+          "derived": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 46,
+            "value": 0.0
+          },
+          "hidden": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 50,
+            "value": 0.0
+          },
+          "owned_deleted": {
+            "correct": 158,
+            "exact": "1/1",
+            "total": 158,
+            "value": 1.0
+          },
+          "references": {
+            "correct": 5,
+            "exact": "1/1",
+            "total": 5,
+            "value": 1.0
+          },
+          "retained": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 202,
+            "value": 0.0
+          }
+        },
+        "coverage_by_stratum": {
+          "hidden=N,shared=N": {
+            "correct": 5,
+            "coverage": {
+              "exact": "5/6",
+              "value": 0.833333
+            },
+            "subjects": 1,
+            "total": 6
+          },
+          "hidden=Y,shared=N": {
+            "correct": 87,
+            "coverage": {
+              "exact": "87/278",
+              "value": 0.31295
+            },
+            "subjects": 10,
+            "total": 278
+          },
+          "hidden=Y,shared=Y": {
+            "correct": 71,
+            "coverage": {
+              "exact": "71/233",
+              "value": 0.304721
+            },
+            "subjects": 9,
+            "total": 233
+          }
+        },
+        "coverage_committed_only": {
+          "exact": "163/517",
+          "value": 0.31528
+        },
+        "coverage_units": {
+          "correct": 163,
+          "total": 517
+        },
+        "discovery": {
+          "f1": {
+            "exact": "26/29",
+            "value": 0.896552
+          },
+          "fn": 96,
+          "fp": 0,
+          "precision": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "recall": {
+            "exact": "13/16",
+            "value": 0.8125
+          },
+          "recall_fk_truth": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "tp": 416
+        },
+        "hidden_truth_mismatches": 0,
+        "lae_outcomes": {},
+        "lae_rows_added_per_request": {
+          "max": 0,
+          "mean": 0.0,
+          "min": 0,
+          "n": 20,
+          "p50": 0.0,
+          "p95": 0.0
+        },
+        "latency_ms": {
+          "discovery": {
+            "max": 46.194,
+            "mean": 37.397,
+            "min": 19.089,
+            "n": 20,
+            "p50": 40.595,
+            "p95": 45.766
+          },
+          "execution": {
+            "max": 99.796,
+            "mean": 72.304,
+            "min": 46.378,
+            "n": 20,
+            "p50": 72.891,
+            "p95": 93.585
+          },
+          "total": {
+            "max": 184.829,
+            "mean": 141.387,
+            "min": 106.607,
+            "n": 20,
+            "p50": 137.383,
+            "p95": 171.795
+          }
+        },
+        "other_customers_deleted": 0,
+        "residual_hmac_rows": 50,
+        "residual_hmac_rows_before": 70,
+        "residual_probes_total": 0,
+        "residual_substring_rows": 57,
+        "residual_substring_rows_before": 86,
+        "retention_violations": 258,
+        "shared_rows_deleted": 12,
+        "shared_rows_modified": 0,
+        "status_counts": {
+          "COMMITTED": 20
+        },
+        "subjects": 20,
+        "subjects_with_ambiguous_probes": 0,
+        "subjects_with_zero_residual": 0,
+        "unrelated_damage": 0
+      },
+      "wall_ms": 9974.2
+    },
+    {
+      "confirmed_feedback_edges": 0,
+      "lae_size_after_bytes": 2408448,
+      "lae_size_before_bytes": 868352,
+      "lae_size_delta_bytes": 1540096,
+      "method": "PROPOSED_LAE",
+      "metrics": {
+        "acknowledge_p50_ms": 14.097,
+        "acknowledge_p95_ms": 27.385,
+        "ambiguous_probes_excluded": 4,
+        "approval_p50_ms": 50.7,
+        "approval_p95_ms": 91.255,
+        "audit_events_per_request_mean": 8.7,
+        "blocked": 1,
+        "committed": 19,
+        "discovery_p50_ms": 177.554,
+        "discovery_p95_ms": 235.76,
+        "erasure_coverage": 0.865643,
+        "erasure_coverage_committed": 0.886051,
+        "evidence_p50_ms": 140.491,
+        "evidence_p95_ms": 208.501,
+        "execution_p50_ms": 356.923,
+        "execution_p95_ms": 433.729,
+        "f1": 0.937692,
+        "failed": 0,
+        "lae_schema_bytes_delta": 1540096,
+        "outcome_failed": 19,
+        "planning_p50_ms": 390.634,
+        "planning_p95_ms": 498.384,
+        "precision": 1.0,
+        "recall": 0.882692,
+        "recall_fk_truth": 1.0,
+        "request_p50_ms": 86.943,
+        "request_p95_ms": 141.215,
+        "residual_hmac_rows": 62,
+        "residual_substring_rows": 62,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "subjects": 20,
+        "total_p50_ms": 1854.818,
+        "total_p95_ms": 2124.096,
+        "unrelated_damage": 0,
+        "verification_p50_ms": 458.65,
+        "verification_p95_ms": 607.904
+      },
+      "params": {
+        "method": "PROPOSED_LAE",
+        "row_counts": {
+          "customer": 100,
+          "customer_address": 108,
+          "customer_profile_cache": 35,
+          "document": 50,
+          "document_embedding": 50,
+          "loyalty_account": 62,
+          "marketing_event_log": 300,
+          "order_line": 737,
+          "payment": 194,
+          "product": 50,
+          "purchase_order": 300,
+          "shipment": 223,
+          "support_ticket": 100,
+          "ticket_message": 276
+        },
+        "scale": "small",
+        "seed": 42,
+        "set": "S2_control",
+        "subjects": 20
+      },
+      "prepare_ms": {
+        "snapshot": 484.6
+      },
+      "scale": "small",
+      "scenario": "B5",
+      "set": "S2_control",
+      "setup_ms": {
+        "migrate_ms": 1015.0,
+        "seed_ms": 1228.4,
+        "vacuum_analyze_ms": 303.3
+      },
+      "summary": {
+        "ambiguous_probes_excluded_total": 4,
+        "audit_events_per_request": {
+          "max": 9,
+          "mean": 8.7,
+          "min": 3,
+          "n": 20,
+          "p50": 9.0,
+          "p95": 9.0
+        },
+        "coverage": {
+          "exact": "451/521",
+          "value": 0.865643
+        },
+        "coverage_by_category": {
+          "anonymized": {
+            "correct": 61,
+            "exact": "1/1",
+            "total": 61,
+            "value": 1.0
+          },
+          "derived": {
+            "correct": 46,
+            "exact": "1/1",
+            "total": 46,
+            "value": 1.0
+          },
+          "hidden": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 61,
+            "value": 0.0
+          },
+          "owned_deleted": {
+            "correct": 101,
+            "exact": "101/110",
+            "total": 110,
+            "value": 0.918182
+          },
+          "references": {
+            "correct": 1,
+            "exact": "1/1",
+            "total": 1,
+            "value": 1.0
+          },
+          "retained": {
+            "correct": 242,
+            "exact": "1/1",
+            "total": 242,
+            "value": 1.0
+          }
+        },
+        "coverage_by_stratum": {
+          "hidden=Y,shared=N": {
+            "correct": 353,
+            "coverage": {
+              "exact": "353/392",
+              "value": 0.90051
+            },
+            "subjects": 15,
+            "total": 392
+          },
+          "hidden=Y,shared=Y": {
+            "correct": 98,
+            "coverage": {
+              "exact": "98/129",
+              "value": 0.75969
+            },
+            "subjects": 5,
+            "total": 129
+          }
+        },
+        "coverage_committed_only": {
+          "exact": "451/509",
+          "value": 0.886051
+        },
+        "coverage_units": {
+          "correct": 451,
+          "total": 521
+        },
+        "discovery": {
+          "f1": {
+            "exact": "918/979",
+            "value": 0.937692
+          },
+          "fn": 61,
+          "fp": 0,
+          "precision": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "recall": {
+            "exact": "459/520",
+            "value": 0.882692
+          },
+          "recall_fk_truth": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "tp": 459
+        },
+        "hidden_truth_mismatches": 0,
+        "lae_outcomes": {
+          "FAILED": 19
+        },
+        "lae_rows_added_per_request": {
+          "max": 121,
+          "mean": 85.35,
+          "min": 35,
+          "n": 20,
+          "p50": 86.0,
+          "p95": 117.2
+        },
+        "latency_ms": {
+          "acknowledge": {
+            "max": 57.08,
+            "mean": 16.726,
+            "min": 8.734,
+            "n": 20,
+            "p50": 14.097,
+            "p95": 27.385
+          },
+          "approval": {
+            "max": 113.425,
+            "mean": 53.509,
+            "min": 33.696,
+            "n": 19,
+            "p50": 50.7,
+            "p95": 91.255
+          },
+          "discovery": {
+            "max": 424.025,
+            "mean": 192.409,
+            "min": 106.469,
+            "n": 20,
+            "p50": 177.554,
+            "p95": 235.76
+          },
+          "evidence": {
+            "max": 256.907,
+            "mean": 144.064,
+            "min": 71.746,
+            "n": 19,
+            "p50": 140.491,
+            "p95": 208.501
+          },
+          "execution": {
+            "max": 479.909,
+            "mean": 356.038,
+            "min": 239.393,
+            "n": 19,
+            "p50": 356.923,
+            "p95": 433.729
+          },
+          "planning": {
+            "max": 671.917,
+            "mean": 392.95,
+            "min": 266.888,
+            "n": 20,
+            "p50": 390.634,
+            "p95": 498.384
+          },
+          "request": {
+            "max": 202.223,
+            "mean": 93.786,
+            "min": 50.949,
+            "n": 20,
+            "p50": 86.943,
+            "p95": 141.215
+          },
+          "total": {
+            "max": 2170.201,
+            "mean": 1760.929,
+            "min": 712.326,
+            "n": 20,
+            "p50": 1854.818,
+            "p95": 2124.096
+          },
+          "verification": {
+            "max": 620.791,
+            "mean": 486.663,
+            "min": 393.207,
+            "n": 19,
+            "p50": 458.65,
+            "p95": 607.904
+          }
+        },
+        "other_customers_deleted": 0,
+        "residual_hmac_rows": 62,
+        "residual_hmac_rows_before": 81,
+        "residual_probes_total": 112,
+        "residual_substring_rows": 62,
+        "residual_substring_rows_before": 93,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "shared_rows_modified": 4,
+        "status_counts": {
+          "BLOCKED": 1,
+          "COMMITTED": 19
+        },
+        "subjects": 20,
+        "subjects_with_ambiguous_probes": 2,
+        "subjects_with_zero_residual": 0,
+        "unrelated_damage": 0
+      },
+      "wall_ms": 42451.1
+    },
+    {
+      "confirmed_feedback_edges": 0,
+      "lae_size_after_bytes": 868352,
+      "lae_size_before_bytes": 868352,
+      "lae_size_delta_bytes": 0,
+      "method": "BASELINE_1_MANUAL",
+      "metrics": {
+        "ambiguous_probes_excluded": 0,
+        "audit_events_per_request_mean": 0.0,
+        "blocked": 0,
+        "committed": 0,
+        "discovery_p50_ms": 15.484,
+        "discovery_p95_ms": 21.037,
+        "erasure_coverage": 0.460036,
+        "erasure_coverage_committed": null,
+        "execution_p50_ms": 12.764,
+        "execution_p95_ms": 19.612,
+        "f1": 0.397743,
+        "failed": 20,
+        "lae_schema_bytes_delta": 0,
+        "precision": 0.959184,
+        "recall": 0.25089,
+        "recall_fk_truth": 0.304536,
+        "residual_hmac_rows": 65,
+        "residual_substring_rows": 83,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "subjects": 20,
+        "total_p50_ms": 28.037,
+        "total_p95_ms": 39.081,
+        "unrelated_damage": 0
+      },
+      "params": {
+        "method": "BASELINE_1_MANUAL",
+        "row_counts": {
+          "customer": 1000,
+          "customer_address": 998,
+          "customer_profile_cache": 322,
+          "document": 500,
+          "document_embedding": 500,
+          "loyalty_account": 612,
+          "marketing_event_log": 3000,
+          "order_line": 7574,
+          "payment": 1969,
+          "product": 200,
+          "purchase_order": 3000,
+          "shipment": 2063,
+          "support_ticket": 1000,
+          "ticket_message": 2531
+        },
+        "scale": "default",
+        "seed": 42,
+        "set": "S1",
+        "subjects": 20
+      },
+      "prepare_ms": {},
+      "scale": "default",
+      "scenario": "B5",
+      "set": "S1",
+      "setup_ms": {
+        "migrate_ms": 1001.6,
+        "seed_ms": 2995.3,
+        "vacuum_analyze_ms": 429.1
+      },
+      "summary": {
+        "ambiguous_probes_excluded_total": 0,
+        "audit_events_per_request": {
+          "max": 0,
+          "mean": 0.0,
+          "min": 0,
+          "n": 20,
+          "p50": 0.0,
+          "p95": 0.0
+        },
+        "coverage": {
+          "exact": "259/563",
+          "value": 0.460036
+        },
+        "coverage_by_category": {
+          "anonymized": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 63,
+            "value": 0.0
+          },
+          "derived": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 54,
+            "value": 0.0
+          },
+          "hidden": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 45,
+            "value": 0.0
+          },
+          "owned_deleted": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 141,
+            "value": 0.0
+          },
+          "references": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 1,
+            "value": 0.0
+          },
+          "retained": {
+            "correct": 259,
+            "exact": "1/1",
+            "total": 259,
+            "value": 1.0
+          }
+        },
+        "coverage_by_stratum": {
+          "hidden=N,shared=N": {
+            "correct": 71,
+            "coverage": {
+              "exact": "71/132",
+              "value": 0.537879
+            },
+            "subjects": 5,
+            "total": 132
+          },
+          "hidden=N,shared=Y": {
+            "correct": 39,
+            "coverage": {
+              "exact": "39/116",
+              "value": 0.336207
+            },
+            "subjects": 5,
+            "total": 116
+          },
+          "hidden=Y,shared=N": {
+            "correct": 92,
+            "coverage": {
+              "exact": "1/2",
+              "value": 0.5
+            },
+            "subjects": 5,
+            "total": 184
+          },
+          "hidden=Y,shared=Y": {
+            "correct": 57,
+            "coverage": {
+              "exact": "57/131",
+              "value": 0.435115
+            },
+            "subjects": 5,
+            "total": 131
+          }
+        },
+        "coverage_committed_only": null,
+        "coverage_units": {
+          "correct": 259,
+          "total": 563
+        },
+        "discovery": {
+          "f1": {
+            "exact": "282/709",
+            "value": 0.397743
+          },
+          "fn": 421,
+          "fp": 6,
+          "precision": {
+            "exact": "47/49",
+            "value": 0.959184
+          },
+          "recall": {
+            "exact": "141/562",
+            "value": 0.25089
+          },
+          "recall_fk_truth": {
+            "exact": "141/463",
+            "value": 0.304536
+          },
+          "tp": 141
+        },
+        "hidden_truth_mismatches": 0,
+        "lae_outcomes": {},
+        "lae_rows_added_per_request": {
+          "max": 0,
+          "mean": 0.0,
+          "min": 0,
+          "n": 20,
+          "p50": 0.0,
+          "p95": 0.0
+        },
+        "latency_ms": {
+          "discovery": {
+            "max": 25.943,
+            "mean": 15.509,
+            "min": 8.321,
+            "n": 20,
+            "p50": 15.484,
+            "p95": 21.037
+          },
+          "execution": {
+            "max": 20.854,
+            "mean": 13.502,
+            "min": 8.336,
+            "n": 20,
+            "p50": 12.764,
+            "p95": 19.612
+          },
+          "total": {
+            "max": 46.859,
+            "mean": 29.063,
+            "min": 16.678,
+            "n": 20,
+            "p50": 28.037,
+            "p95": 39.081
+          }
+        },
+        "other_customers_deleted": 0,
+        "residual_hmac_rows": 65,
+        "residual_hmac_rows_before": 65,
+        "residual_probes_total": 0,
+        "residual_substring_rows": 83,
+        "residual_substring_rows_before": 83,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "shared_rows_modified": 0,
+        "status_counts": {
+          "FAILED": 20
+        },
+        "subjects": 20,
+        "subjects_with_ambiguous_probes": 0,
+        "subjects_with_zero_residual": 0,
+        "unrelated_damage": 0
+      },
+      "wall_ms": 23668.2
+    },
+    {
+      "confirmed_feedback_edges": 0,
+      "lae_size_after_bytes": 868352,
+      "lae_size_before_bytes": 868352,
+      "lae_size_delta_bytes": 0,
+      "method": "BASELINE_2_FK_ONLY",
+      "metrics": {
+        "ambiguous_probes_excluded": 0,
+        "audit_events_per_request_mean": 0.0,
+        "blocked": 0,
+        "committed": 20,
+        "discovery_p50_ms": 32.542,
+        "discovery_p95_ms": 45.675,
+        "erasure_coverage": 0.25222,
+        "erasure_coverage_committed": 0.25222,
+        "execution_p50_ms": 80.454,
+        "execution_p95_ms": 162.968,
+        "f1": 0.903415,
+        "failed": 0,
+        "lae_schema_bytes_delta": 0,
+        "precision": 1.0,
+        "recall": 0.823843,
+        "recall_fk_truth": 1.0,
+        "residual_hmac_rows": 45,
+        "residual_substring_rows": 51,
+        "retention_violations": 322,
+        "shared_rows_deleted": 10,
+        "subjects": 20,
+        "total_p50_ms": 155.611,
+        "total_p95_ms": 249.779,
+        "unrelated_damage": 0
+      },
+      "params": {
+        "method": "BASELINE_2_FK_ONLY",
+        "row_counts": {
+          "customer": 1000,
+          "customer_address": 998,
+          "customer_profile_cache": 322,
+          "document": 500,
+          "document_embedding": 500,
+          "loyalty_account": 612,
+          "marketing_event_log": 3000,
+          "order_line": 7574,
+          "payment": 1969,
+          "product": 200,
+          "purchase_order": 3000,
+          "shipment": 2063,
+          "support_ticket": 1000,
+          "ticket_message": 2531
+        },
+        "scale": "default",
+        "seed": 42,
+        "set": "S1",
+        "subjects": 20
+      },
+      "prepare_ms": {
+        "snapshot": 98.5
+      },
+      "scale": "default",
+      "scenario": "B5",
+      "set": "S1",
+      "setup_ms": {
+        "migrate_ms": 925.9,
+        "seed_ms": 2974.1,
+        "vacuum_analyze_ms": 372.7
+      },
+      "summary": {
+        "ambiguous_probes_excluded_total": 0,
+        "audit_events_per_request": {
+          "max": 0,
+          "mean": 0.0,
+          "min": 0,
+          "n": 20,
+          "p50": 0.0,
+          "p95": 0.0
+        },
+        "coverage": {
+          "exact": "142/563",
+          "value": 0.25222
+        },
+        "coverage_by_category": {
+          "anonymized": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 63,
+            "value": 0.0
+          },
+          "derived": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 54,
+            "value": 0.0
+          },
+          "hidden": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 45,
+            "value": 0.0
+          },
+          "owned_deleted": {
+            "correct": 141,
+            "exact": "1/1",
+            "total": 141,
+            "value": 1.0
+          },
+          "references": {
+            "correct": 1,
+            "exact": "1/1",
+            "total": 1,
+            "value": 1.0
+          },
+          "retained": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 259,
+            "value": 0.0
+          }
+        },
+        "coverage_by_stratum": {
+          "hidden=N,shared=N": {
+            "correct": 34,
+            "coverage": {
+              "exact": "17/66",
+              "value": 0.257576
+            },
+            "subjects": 5,
+            "total": 132
+          },
+          "hidden=N,shared=Y": {
+            "correct": 53,
+            "coverage": {
+              "exact": "53/116",
+              "value": 0.456897
+            },
+            "subjects": 5,
+            "total": 116
+          },
+          "hidden=Y,shared=N": {
+            "correct": 33,
+            "coverage": {
+              "exact": "33/184",
+              "value": 0.179348
+            },
+            "subjects": 5,
+            "total": 184
+          },
+          "hidden=Y,shared=Y": {
+            "correct": 22,
+            "coverage": {
+              "exact": "22/131",
+              "value": 0.167939
+            },
+            "subjects": 5,
+            "total": 131
+          }
+        },
+        "coverage_committed_only": {
+          "exact": "142/563",
+          "value": 0.25222
+        },
+        "coverage_units": {
+          "correct": 142,
+          "total": 563
+        },
+        "discovery": {
+          "f1": {
+            "exact": "926/1025",
+            "value": 0.903415
+          },
+          "fn": 99,
+          "fp": 0,
+          "precision": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "recall": {
+            "exact": "463/562",
+            "value": 0.823843
+          },
+          "recall_fk_truth": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "tp": 463
+        },
+        "hidden_truth_mismatches": 0,
+        "lae_outcomes": {},
+        "lae_rows_added_per_request": {
+          "max": 0,
+          "mean": 0.0,
+          "min": 0,
+          "n": 20,
+          "p50": 0.0,
+          "p95": 0.0
+        },
+        "latency_ms": {
+          "discovery": {
+            "max": 50.999,
+            "mean": 33.565,
+            "min": 21.884,
+            "n": 20,
+            "p50": 32.542,
+            "p95": 45.675
+          },
+          "execution": {
+            "max": 165.347,
+            "mean": 85.827,
+            "min": 23.907,
+            "n": 20,
+            "p50": 80.454,
+            "p95": 162.968
+          },
+          "total": {
+            "max": 256.577,
+            "mean": 154.528,
+            "min": 81.625,
+            "n": 20,
+            "p50": 155.611,
+            "p95": 249.779
+          }
+        },
+        "other_customers_deleted": 0,
+        "residual_hmac_rows": 45,
+        "residual_hmac_rows_before": 65,
+        "residual_probes_total": 0,
+        "residual_substring_rows": 51,
+        "residual_substring_rows_before": 83,
+        "retention_violations": 322,
+        "shared_rows_deleted": 10,
+        "shared_rows_modified": 0,
+        "status_counts": {
+          "COMMITTED": 20
+        },
+        "subjects": 20,
+        "subjects_with_ambiguous_probes": 0,
+        "subjects_with_zero_residual": 7,
+        "unrelated_damage": 0
+      },
+      "wall_ms": 25185.0
+    },
+    {
+      "confirmed_feedback_edges": 0,
+      "lae_size_after_bytes": 2277376,
+      "lae_size_before_bytes": 868352,
+      "lae_size_delta_bytes": 1409024,
+      "method": "PROPOSED_LAE",
+      "metrics": {
+        "acknowledge_p50_ms": 16.715,
+        "acknowledge_p95_ms": 78.416,
+        "ambiguous_probes_excluded": 28,
+        "approval_p50_ms": 49.782,
+        "approval_p95_ms": 64.937,
+        "audit_events_per_request_mean": 7.5,
+        "blocked": 5,
+        "committed": 15,
+        "discovery_p50_ms": 199.565,
+        "discovery_p95_ms": 243.472,
+        "erasure_coverage": 0.748466,
+        "erasure_coverage_committed": 0.89441,
+        "evidence_p50_ms": 153.568,
+        "evidence_p95_ms": 207.893,
+        "execution_p50_ms": 406.667,
+        "execution_p95_ms": 538.591,
+        "f1": 0.958289,
+        "failed": 0,
+        "lae_schema_bytes_delta": 1409024,
+        "outcome_failed": 9,
+        "outcome_partial": 6,
+        "planning_p50_ms": 458.204,
+        "planning_p95_ms": 579.251,
+        "precision": 1.0,
+        "recall": 0.919918,
+        "recall_fk_truth": 1.0,
+        "request_p50_ms": 97.81,
+        "request_p95_ms": 131.705,
+        "residual_hmac_rows": 44,
+        "residual_substring_rows": 50,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "subjects": 20,
+        "total_p50_ms": 2269.366,
+        "total_p95_ms": 2965.721,
+        "unrelated_damage": 0,
+        "verification_p50_ms": 943.695,
+        "verification_p95_ms": 1103.18
+      },
+      "params": {
+        "method": "PROPOSED_LAE",
+        "row_counts": {
+          "customer": 1000,
+          "customer_address": 998,
+          "customer_profile_cache": 322,
+          "document": 500,
+          "document_embedding": 500,
+          "loyalty_account": 612,
+          "marketing_event_log": 3000,
+          "order_line": 7574,
+          "payment": 1969,
+          "product": 200,
+          "purchase_order": 3000,
+          "shipment": 2063,
+          "support_ticket": 1000,
+          "ticket_message": 2531
+        },
+        "scale": "default",
+        "seed": 42,
+        "set": "S2_control",
+        "subjects": 20
+      },
+      "prepare_ms": {
+        "snapshot": 764.2
+      },
+      "scale": "default",
+      "scenario": "B5",
+      "set": "S2_control",
+      "setup_ms": {
+        "migrate_ms": 970.6,
+        "seed_ms": 2841.7,
+        "vacuum_analyze_ms": 429.8
+      },
+      "summary": {
+        "ambiguous_probes_excluded_total": 28,
+        "audit_events_per_request": {
+          "max": 9,
+          "mean": 7.5,
+          "min": 3,
+          "n": 20,
+          "p50": 9.0,
+          "p95": 9.0
+        },
+        "coverage": {
+          "exact": "122/163",
+          "value": 0.748466
+        },
+        "coverage_by_category": {
+          "anonymized": {
+            "correct": 37,
+            "exact": "37/57",
+            "total": 57,
+            "value": 0.649123
+          },
+          "derived": {
+            "correct": 28,
+            "exact": "2/3",
+            "total": 42,
+            "value": 0.666667
+          },
+          "hidden": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 39,
+            "value": 0.0
+          },
+          "owned_deleted": {
+            "correct": 80,
+            "exact": "8/13",
+            "total": 130,
+            "value": 0.615385
+          },
+          "references": {
+            "correct": 2,
+            "exact": "1/1",
+            "total": 2,
+            "value": 1.0
+          },
+          "retained": {
+            "correct": 219,
+            "exact": "1/1",
+            "total": 219,
+            "value": 1.0
+          }
+        },
+        "coverage_by_stratum": {
+          "hidden=N,shared=N": {
+            "correct": 80,
+            "coverage": {
+              "exact": "1/1",
+              "value": 1.0
+            },
+            "subjects": 5,
+            "total": 80
+          },
+          "hidden=N,shared=Y": {
+            "correct": 97,
+            "coverage": {
+              "exact": "97/172",
+              "value": 0.563953
+            },
+            "subjects": 5,
+            "total": 172
+          },
+          "hidden=Y,shared=N": {
+            "correct": 92,
+            "coverage": {
+              "exact": "23/27",
+              "value": 0.851852
+            },
+            "subjects": 5,
+            "total": 108
+          },
+          "hidden=Y,shared=Y": {
+            "correct": 97,
+            "coverage": {
+              "exact": "97/129",
+              "value": 0.751938
+            },
+            "subjects": 5,
+            "total": 129
+          }
+        },
+        "coverage_committed_only": {
+          "exact": "144/161",
+          "value": 0.89441
+        },
+        "coverage_units": {
+          "correct": 366,
+          "total": 489
+        },
+        "discovery": {
+          "f1": {
+            "exact": "896/935",
+            "value": 0.958289
+          },
+          "fn": 39,
+          "fp": 0,
+          "precision": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "recall": {
+            "exact": "448/487",
+            "value": 0.919918
+          },
+          "recall_fk_truth": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "tp": 448
+        },
+        "hidden_truth_mismatches": 0,
+        "lae_outcomes": {
+          "FAILED": 9,
+          "PARTIAL": 6
+        },
+        "lae_rows_added_per_request": {
+          "max": 98,
+          "mean": 76.6,
+          "min": 45,
+          "n": 20,
+          "p50": 77.5,
+          "p95": 94.2
+        },
+        "latency_ms": {
+          "acknowledge": {
+            "max": 80.896,
+            "mean": 30.49,
+            "min": 10.623,
+            "n": 20,
+            "p50": 16.715,
+            "p95": 78.416
+          },
+          "approval": {
+            "max": 69.202,
+            "mean": 51.923,
+            "min": 33.947,
+            "n": 15,
+            "p50": 49.782,
+            "p95": 64.937
+          },
+          "discovery": {
+            "max": 244.656,
+            "mean": 198.86,
+            "min": 141.638,
+            "n": 20,
+            "p50": 199.565,
+            "p95": 243.472
+          },
+          "evidence": {
+            "max": 219.897,
+            "mean": 149.501,
+            "min": 93.233,
+            "n": 15,
+            "p50": 153.568,
+            "p95": 207.893
+          },
+          "execution": {
+            "max": 553.115,
+            "mean": 418.714,
+            "min": 326.933,
+            "n": 15,
+            "p50": 406.667,
+            "p95": 538.591
+          },
+          "planning": {
+            "max": 797.779,
+            "mean": 475.279,
+            "min": 337.409,
+            "n": 20,
+            "p50": 458.204,
+            "p95": 579.251
+          },
+          "request": {
+            "max": 158.235,
+            "mean": 100.518,
+            "min": 59.603,
+            "n": 20,
+            "p50": 97.81,
+            "p95": 131.705
+          },
+          "total": {
+            "max": 3005.407,
+            "mean": 2051.328,
+            "min": 772.556,
+            "n": 20,
+            "p50": 2269.366,
+            "p95": 2965.721
+          },
+          "verification": {
+            "max": 1115.204,
+            "mean": 935.313,
+            "min": 539.449,
+            "n": 15,
+            "p50": 943.695,
+            "p95": 1103.18
+          }
+        },
+        "other_customers_deleted": 0,
+        "residual_hmac_rows": 44,
+        "residual_hmac_rows_before": 59,
+        "residual_probes_total": 88,
+        "residual_substring_rows": 50,
+        "residual_substring_rows_before": 71,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "shared_rows_modified": 5,
+        "status_counts": {
+          "BLOCKED": 5,
+          "COMMITTED": 15
+        },
+        "subjects": 20,
+        "subjects_with_ambiguous_probes": 15,
+        "subjects_with_zero_residual": 6,
+        "unrelated_damage": 0
+      },
+      "wall_ms": 63919.3
+    },
+    {
+      "confirmed_feedback_edges": 0,
+      "lae_size_after_bytes": 868352,
+      "lae_size_before_bytes": 868352,
+      "lae_size_delta_bytes": 0,
+      "method": "BASELINE_1_MANUAL",
+      "metrics": {
+        "ambiguous_probes_excluded": 0,
+        "audit_events_per_request_mean": 0.0,
+        "blocked": 0,
+        "committed": 0,
+        "discovery_p50_ms": 11.634,
+        "discovery_p95_ms": 16.786,
+        "erasure_coverage": 0.481013,
+        "erasure_coverage_committed": null,
+        "execution_p50_ms": 9.884,
+        "execution_p95_ms": 15.12,
+        "f1": 0.383041,
+        "failed": 20,
+        "lae_schema_bytes_delta": 0,
+        "precision": 0.992424,
+        "recall": 0.237319,
+        "recall_fk_truth": 0.28355,
+        "residual_hmac_rows": 60,
+        "residual_substring_rows": 76,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "subjects": 20,
+        "total_p50_ms": 21.97,
+        "total_p95_ms": 31.738,
+        "unrelated_damage": 0
+      },
+      "params": {
+        "method": "BASELINE_1_MANUAL",
+        "row_counts": {
+          "customer": 10000,
+          "customer_address": 10019,
+          "customer_profile_cache": 3000,
+          "document": 5000,
+          "document_embedding": 5000,
+          "loyalty_account": 5950,
+          "marketing_event_log": 30000,
+          "order_line": 75094,
+          "payment": 19805,
+          "product": 1000,
+          "purchase_order": 30000,
+          "shipment": 21406,
+          "support_ticket": 10000,
+          "ticket_message": 24897
+        },
+        "scale": "large",
+        "seed": 42,
+        "set": "S1",
+        "subjects": 20
+      },
+      "prepare_ms": {},
+      "scale": "large",
+      "scenario": "B5",
+      "set": "S1",
+      "setup_ms": {
+        "migrate_ms": 898.1,
+        "seed_ms": 19222.7,
+        "vacuum_analyze_ms": 1131.7
+      },
+      "summary": {
+        "ambiguous_probes_excluded_total": 0,
+        "audit_events_per_request": {
+          "max": 0,
+          "mean": 0.0,
+          "min": 0,
+          "n": 20,
+          "p50": 0.0,
+          "p95": 0.0
+        },
+        "coverage": {
+          "exact": "38/79",
+          "value": 0.481013
+        },
+        "coverage_by_category": {
+          "anonymized": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 65,
+            "value": 0.0
+          },
+          "derived": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 50,
+            "value": 0.0
+          },
+          "hidden": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 40,
+            "value": 0.0
+          },
+          "owned_deleted": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 131,
+            "value": 0.0
+          },
+          "references": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 1,
+            "value": 0.0
+          },
+          "retained": {
+            "correct": 266,
+            "exact": "1/1",
+            "total": 266,
+            "value": 1.0
+          }
+        },
+        "coverage_by_stratum": {
+          "hidden=N,shared=N": {
+            "correct": 75,
+            "coverage": {
+              "exact": "75/131",
+              "value": 0.572519
+            },
+            "subjects": 5,
+            "total": 131
+          },
+          "hidden=N,shared=Y": {
+            "correct": 39,
+            "coverage": {
+              "exact": "3/8",
+              "value": 0.375
+            },
+            "subjects": 5,
+            "total": 104
+          },
+          "hidden=Y,shared=N": {
+            "correct": 49,
+            "coverage": {
+              "exact": "49/118",
+              "value": 0.415254
+            },
+            "subjects": 5,
+            "total": 118
+          },
+          "hidden=Y,shared=Y": {
+            "correct": 103,
+            "coverage": {
+              "exact": "103/200",
+              "value": 0.515
+            },
+            "subjects": 5,
+            "total": 200
+          }
+        },
+        "coverage_committed_only": null,
+        "coverage_units": {
+          "correct": 266,
+          "total": 553
+        },
+        "discovery": {
+          "f1": {
+            "exact": "131/342",
+            "value": 0.383041
+          },
+          "fn": 421,
+          "fp": 1,
+          "precision": {
+            "exact": "131/132",
+            "value": 0.992424
+          },
+          "recall": {
+            "exact": "131/552",
+            "value": 0.237319
+          },
+          "recall_fk_truth": {
+            "exact": "131/462",
+            "value": 0.28355
+          },
+          "tp": 131
+        },
+        "hidden_truth_mismatches": 0,
+        "lae_outcomes": {},
+        "lae_rows_added_per_request": {
+          "max": 0,
+          "mean": 0.0,
+          "min": 0,
+          "n": 20,
+          "p50": 0.0,
+          "p95": 0.0
+        },
+        "latency_ms": {
+          "discovery": {
+            "max": 18.521,
+            "mean": 12.257,
+            "min": 8.947,
+            "n": 20,
+            "p50": 11.634,
+            "p95": 16.786
+          },
+          "execution": {
+            "max": 18.765,
+            "mean": 11.227,
+            "min": 8.616,
+            "n": 20,
+            "p50": 9.884,
+            "p95": 15.12
+          },
+          "total": {
+            "max": 37.333,
+            "mean": 23.545,
+            "min": 18.022,
+            "n": 20,
+            "p50": 21.97,
+            "p95": 31.738
+          }
+        },
+        "other_customers_deleted": 0,
+        "residual_hmac_rows": 60,
+        "residual_hmac_rows_before": 60,
+        "residual_probes_total": 0,
+        "residual_substring_rows": 76,
+        "residual_substring_rows_before": 76,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "shared_rows_modified": 0,
+        "status_counts": {
+          "FAILED": 20
+        },
+        "subjects": 20,
+        "subjects_with_ambiguous_probes": 0,
+        "subjects_with_zero_residual": 0,
+        "unrelated_damage": 0
+      },
+      "wall_ms": 167108.3
+    },
+    {
+      "confirmed_feedback_edges": 0,
+      "lae_size_after_bytes": 868352,
+      "lae_size_before_bytes": 868352,
+      "lae_size_delta_bytes": 0,
+      "method": "BASELINE_2_FK_ONLY",
+      "metrics": {
+        "ambiguous_probes_excluded": 0,
+        "audit_events_per_request_mean": 0.0,
+        "blocked": 0,
+        "committed": 20,
+        "discovery_p50_ms": 32.05,
+        "discovery_p95_ms": 51.01,
+        "erasure_coverage": 0.238698,
+        "erasure_coverage_committed": 0.238698,
+        "execution_p50_ms": 87.004,
+        "execution_p95_ms": 152.166,
+        "f1": 0.911243,
+        "failed": 0,
+        "lae_schema_bytes_delta": 0,
+        "precision": 1.0,
+        "recall": 0.836957,
+        "recall_fk_truth": 1.0,
+        "residual_hmac_rows": 40,
+        "residual_substring_rows": 48,
+        "retention_violations": 331,
+        "shared_rows_deleted": 10,
+        "subjects": 20,
+        "total_p50_ms": 150.975,
+        "total_p95_ms": 239.626,
+        "unrelated_damage": 0
+      },
+      "params": {
+        "method": "BASELINE_2_FK_ONLY",
+        "row_counts": {
+          "customer": 10000,
+          "customer_address": 10019,
+          "customer_profile_cache": 3000,
+          "document": 5000,
+          "document_embedding": 5000,
+          "loyalty_account": 5950,
+          "marketing_event_log": 30000,
+          "order_line": 75094,
+          "payment": 19805,
+          "product": 1000,
+          "purchase_order": 30000,
+          "shipment": 21406,
+          "support_ticket": 10000,
+          "ticket_message": 24897
+        },
+        "scale": "large",
+        "seed": 42,
+        "set": "S1",
+        "subjects": 20
+      },
+      "prepare_ms": {
+        "snapshot": 82.9
+      },
+      "scale": "large",
+      "scenario": "B5",
+      "set": "S1",
+      "setup_ms": {
+        "migrate_ms": 1042.9,
+        "seed_ms": 16373.4,
+        "vacuum_analyze_ms": 1138.4
+      },
+      "summary": {
+        "ambiguous_probes_excluded_total": 0,
+        "audit_events_per_request": {
+          "max": 0,
+          "mean": 0.0,
+          "min": 0,
+          "n": 20,
+          "p50": 0.0,
+          "p95": 0.0
+        },
+        "coverage": {
+          "exact": "132/553",
+          "value": 0.238698
+        },
+        "coverage_by_category": {
+          "anonymized": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 65,
+            "value": 0.0
+          },
+          "derived": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 50,
+            "value": 0.0
+          },
+          "hidden": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 40,
+            "value": 0.0
+          },
+          "owned_deleted": {
+            "correct": 131,
+            "exact": "1/1",
+            "total": 131,
+            "value": 1.0
+          },
+          "references": {
+            "correct": 1,
+            "exact": "1/1",
+            "total": 1,
+            "value": 1.0
+          },
+          "retained": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 266,
+            "value": 0.0
+          }
+        },
+        "coverage_by_stratum": {
+          "hidden=N,shared=N": {
+            "correct": 26,
+            "coverage": {
+              "exact": "26/131",
+              "value": 0.198473
+            },
+            "subjects": 5,
+            "total": 131
+          },
+          "hidden=N,shared=Y": {
+            "correct": 40,
+            "coverage": {
+              "exact": "5/13",
+              "value": 0.384615
+            },
+            "subjects": 5,
+            "total": 104
+          },
+          "hidden=Y,shared=N": {
+            "correct": 28,
+            "coverage": {
+              "exact": "14/59",
+              "value": 0.237288
+            },
+            "subjects": 5,
+            "total": 118
+          },
+          "hidden=Y,shared=Y": {
+            "correct": 38,
+            "coverage": {
+              "exact": "19/100",
+              "value": 0.19
+            },
+            "subjects": 5,
+            "total": 200
+          }
+        },
+        "coverage_committed_only": {
+          "exact": "132/553",
+          "value": 0.238698
+        },
+        "coverage_units": {
+          "correct": 132,
+          "total": 553
+        },
+        "discovery": {
+          "f1": {
+            "exact": "154/169",
+            "value": 0.911243
+          },
+          "fn": 90,
+          "fp": 0,
+          "precision": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "recall": {
+            "exact": "77/92",
+            "value": 0.836957
+          },
+          "recall_fk_truth": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "tp": 462
+        },
+        "hidden_truth_mismatches": 0,
+        "lae_outcomes": {},
+        "lae_rows_added_per_request": {
+          "max": 0,
+          "mean": 0.0,
+          "min": 0,
+          "n": 20,
+          "p50": 0.0,
+          "p95": 0.0
+        },
+        "latency_ms": {
+          "discovery": {
+            "max": 59.329,
+            "mean": 35.919,
+            "min": 25.805,
+            "n": 20,
+            "p50": 32.05,
+            "p95": 51.01
+          },
+          "execution": {
+            "max": 176.414,
+            "mean": 86.393,
+            "min": 22.76,
+            "n": 20,
+            "p50": 87.004,
+            "p95": 152.166
+          },
+          "total": {
+            "max": 267.815,
+            "mean": 155.633,
+            "min": 87.218,
+            "n": 20,
+            "p50": 150.975,
+            "p95": 239.626
+          }
+        },
+        "other_customers_deleted": 0,
+        "residual_hmac_rows": 40,
+        "residual_hmac_rows_before": 60,
+        "residual_probes_total": 0,
+        "residual_substring_rows": 48,
+        "residual_substring_rows_before": 76,
+        "retention_violations": 331,
+        "shared_rows_deleted": 10,
+        "shared_rows_modified": 0,
+        "status_counts": {
+          "COMMITTED": 20
+        },
+        "subjects": 20,
+        "subjects_with_ambiguous_probes": 0,
+        "subjects_with_zero_residual": 8,
+        "unrelated_damage": 0
+      },
+      "wall_ms": 173170.4
+    },
+    {
+      "confirmed_feedback_edges": 0,
+      "lae_size_after_bytes": 2318336,
+      "lae_size_before_bytes": 868352,
+      "lae_size_delta_bytes": 1449984,
+      "method": "PROPOSED_LAE",
+      "metrics": {
+        "acknowledge_p50_ms": 12.639,
+        "acknowledge_p95_ms": 60.899,
+        "ambiguous_probes_excluded": 40,
+        "approval_p50_ms": 26.563,
+        "approval_p95_ms": 51.264,
+        "audit_events_per_request_mean": 7.2,
+        "blocked": 6,
+        "committed": 14,
+        "discovery_p50_ms": 94.608,
+        "discovery_p95_ms": 192.52,
+        "erasure_coverage": 0.791367,
+        "erasure_coverage_committed": 0.94382,
+        "evidence_p50_ms": 121.219,
+        "evidence_p95_ms": 192.973,
+        "execution_p50_ms": 232.755,
+        "execution_p95_ms": 449.337,
+        "f1": 0.977819,
+        "failed": 0,
+        "lae_schema_bytes_delta": 1449984,
+        "outcome_failed": 7,
+        "outcome_partial": 7,
+        "planning_p50_ms": 748.697,
+        "planning_p95_ms": 1421.254,
+        "precision": 1.0,
+        "recall": 0.9566,
+        "recall_fk_truth": 1.0,
+        "request_p50_ms": 79.727,
+        "request_p95_ms": 117.698,
+        "residual_hmac_rows": 30,
+        "residual_substring_rows": 34,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "subjects": 20,
+        "total_p50_ms": 6098.06,
+        "total_p95_ms": 7602.047,
+        "unrelated_damage": 0,
+        "verification_p50_ms": 4910.596,
+        "verification_p95_ms": 6111.985
+      },
+      "params": {
+        "method": "PROPOSED_LAE",
+        "row_counts": {
+          "customer": 10000,
+          "customer_address": 10019,
+          "customer_profile_cache": 3000,
+          "document": 5000,
+          "document_embedding": 5000,
+          "loyalty_account": 5950,
+          "marketing_event_log": 30000,
+          "order_line": 75094,
+          "payment": 19805,
+          "product": 1000,
+          "purchase_order": 30000,
+          "shipment": 21406,
+          "support_ticket": 10000,
+          "ticket_message": 24897
+        },
+        "scale": "large",
+        "seed": 42,
+        "set": "S2_control",
+        "subjects": 20
+      },
+      "prepare_ms": {
+        "snapshot": 467.4
+      },
+      "scale": "large",
+      "scenario": "B5",
+      "set": "S2_control",
+      "setup_ms": {
+        "migrate_ms": 988.0,
+        "seed_ms": 8771.0,
+        "vacuum_analyze_ms": 1096.7
+      },
+      "summary": {
+        "ambiguous_probes_excluded_total": 40,
+        "audit_events_per_request": {
+          "max": 9,
+          "mean": 7.2,
+          "min": 3,
+          "n": 20,
+          "p50": 9.0,
+          "p95": 9.0
+        },
+        "coverage": {
+          "exact": "110/139",
+          "value": 0.791367
+        },
+        "coverage_by_category": {
+          "anonymized": {
+            "correct": 43,
+            "exact": "43/65",
+            "total": 65,
+            "value": 0.661538
+          },
+          "derived": {
+            "correct": 34,
+            "exact": "17/25",
+            "total": 50,
+            "value": 0.68
+          },
+          "hidden": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 24,
+            "value": 0.0
+          },
+          "owned_deleted": {
+            "correct": 86,
+            "exact": "86/139",
+            "total": 139,
+            "value": 0.618705
+          },
+          "references": {
+            "correct": 2,
+            "exact": "2/3",
+            "total": 3,
+            "value": 0.666667
+          },
+          "retained": {
+            "correct": 275,
+            "exact": "1/1",
+            "total": 275,
+            "value": 1.0
+          }
+        },
+        "coverage_by_stratum": {
+          "hidden=N,shared=N": {
+            "correct": 84,
+            "coverage": {
+              "exact": "1/1",
+              "value": 1.0
+            },
+            "subjects": 5,
+            "total": 84
+          },
+          "hidden=N,shared=Y": {
+            "correct": 134,
+            "coverage": {
+              "exact": "134/177",
+              "value": 0.757062
+            },
+            "subjects": 5,
+            "total": 177
+          },
+          "hidden=Y,shared=N": {
+            "correct": 120,
+            "coverage": {
+              "exact": "15/17",
+              "value": 0.882353
+            },
+            "subjects": 5,
+            "total": 136
+          },
+          "hidden=Y,shared=Y": {
+            "correct": 102,
+            "coverage": {
+              "exact": "34/53",
+              "value": 0.641509
+            },
+            "subjects": 5,
+            "total": 159
+          }
+        },
+        "coverage_committed_only": {
+          "exact": "84/89",
+          "value": 0.94382
+        },
+        "coverage_units": {
+          "correct": 440,
+          "total": 556
+        },
+        "discovery": {
+          "f1": {
+            "exact": "529/541",
+            "value": 0.977819
+          },
+          "fn": 24,
+          "fp": 0,
+          "precision": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "recall": {
+            "exact": "529/553",
+            "value": 0.9566
+          },
+          "recall_fk_truth": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "tp": 529
+        },
+        "hidden_truth_mismatches": 0,
+        "lae_outcomes": {
+          "FAILED": 7,
+          "PARTIAL": 7
+        },
+        "lae_rows_added_per_request": {
+          "max": 120,
+          "mean": 81.1,
+          "min": 51,
+          "n": 20,
+          "p50": 79.0,
+          "p95": 112.4
+        },
+        "latency_ms": {
+          "acknowledge": {
+            "max": 72.331,
+            "mean": 23.608,
+            "min": 5.412,
+            "n": 20,
+            "p50": 12.639,
+            "p95": 60.899
+          },
+          "approval": {
+            "max": 70.559,
+            "mean": 30.683,
+            "min": 20.222,
+            "n": 14,
+            "p50": 26.563,
+            "p95": 51.264
+          },
+          "discovery": {
+            "max": 202.518,
+            "mean": 107.695,
+            "min": 72.211,
+            "n": 20,
+            "p50": 94.608,
+            "p95": 192.52
+          },
+          "evidence": {
+            "max": 245.758,
+            "mean": 121.751,
+            "min": 54.518,
+            "n": 14,
+            "p50": 121.219,
+            "p95": 192.973
+          },
+          "execution": {
+            "max": 634.364,
+            "mean": 276.255,
+            "min": 190.026,
+            "n": 14,
+            "p50": 232.755,
+            "p95": 449.337
+          },
+          "planning": {
+            "max": 1593.975,
+            "mean": 807.474,
+            "min": 455.036,
+            "n": 20,
+            "p50": 748.697,
+            "p95": 1421.254
+          },
+          "request": {
+            "max": 128.924,
+            "mean": 74.939,
+            "min": 38.425,
+            "n": 20,
+            "p50": 79.727,
+            "p95": 117.698
+          },
+          "total": {
+            "max": 9308.515,
+            "mean": 4756.236,
+            "min": 971.548,
+            "n": 20,
+            "p50": 6098.06,
+            "p95": 7602.047
+          },
+          "verification": {
+            "max": 6591.653,
+            "mean": 4842.625,
+            "min": 2419.64,
+            "n": 14,
+            "p50": 4910.596,
+            "p95": 6111.985
+          }
+        },
+        "other_customers_deleted": 0,
+        "residual_hmac_rows": 30,
+        "residual_hmac_rows_before": 44,
+        "residual_probes_total": 74,
+        "residual_substring_rows": 34,
+        "residual_substring_rows_before": 58,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "shared_rows_modified": 4,
+        "status_counts": {
+          "BLOCKED": 6,
+          "COMMITTED": 14
+        },
+        "subjects": 20,
+        "subjects_with_ambiguous_probes": 20,
+        "subjects_with_zero_residual": 7,
+        "unrelated_damage": 0
+      },
+      "wall_ms": 226019.1
+    },
+    {
+      "confirmed_feedback_edge_list": [],
+      "confirmed_feedback_edges": 0,
+      "lae_size_after_bytes": 2301952,
+      "lae_size_before_bytes": 868352,
+      "lae_size_delta_bytes": 1433600,
+      "method": "PROPOSED_LAE",
+      "metrics": {
+        "acknowledge_p50_ms": 15.279,
+        "acknowledge_p95_ms": 67.848,
+        "ambiguous_probes_excluded": 8,
+        "approval_p50_ms": 33.421,
+        "approval_p95_ms": 89.974,
+        "audit_events_per_request_mean": 7.2,
+        "blocked": 6,
+        "committed": 14,
+        "discovery_p50_ms": 121.784,
+        "discovery_p95_ms": 263.591,
+        "erasure_coverage": 0.742747,
+        "erasure_coverage_committed": 0.899457,
+        "evidence_p50_ms": 146.535,
+        "evidence_p95_ms": 197.297,
+        "execution_p50_ms": 237.559,
+        "execution_p95_ms": 491.624,
+        "f1": 0.948665,
+        "failed": 0,
+        "lae_schema_bytes_delta": 1433600,
+        "outcome_failed": 13,
+        "outcome_partial": 1,
+        "planning_p50_ms": 259.232,
+        "planning_p95_ms": 550.726,
+        "precision": 1.0,
+        "recall": 0.902344,
+        "recall_fk_truth": 1.0,
+        "request_p50_ms": 89.118,
+        "request_p95_ms": 1412.909,
+        "residual_hmac_rows": 56,
+        "residual_substring_rows": 60,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "subjects": 20,
+        "total_p50_ms": 1250.106,
+        "total_p95_ms": 4169.135,
+        "unrelated_damage": 0,
+        "verification_p50_ms": 350.884,
+        "verification_p95_ms": 786.929
+      },
+      "params": {
+        "method": "PROPOSED_LAE",
+        "row_counts": {
+          "customer": 100,
+          "customer_address": 108,
+          "customer_profile_cache": 35,
+          "document": 50,
+          "document_embedding": 50,
+          "loyalty_account": 62,
+          "marketing_event_log": 300,
+          "order_line": 737,
+          "payment": 194,
+          "product": 50,
+          "purchase_order": 300,
+          "shipment": 223,
+          "support_ticket": 100,
+          "ticket_message": 276
+        },
+        "scale": "small",
+        "seed": 42,
+        "set": "S1",
+        "subjects": 20
+      },
+      "prepare_ms": {
+        "snapshot": 376.1
+      },
+      "scale": "small",
+      "scenario": "B5",
+      "set": "S1",
+      "setup_ms": {
+        "migrate_ms": 1153.7,
+        "seed_ms": 1252.5,
+        "vacuum_analyze_ms": 345.1
+      },
+      "summary": {
+        "ambiguous_probes_excluded_total": 8,
+        "audit_events_per_request": {
+          "max": 9,
+          "mean": 7.2,
+          "min": 3,
+          "n": 20,
+          "p50": 9.0,
+          "p95": 9.0
+        },
+        "coverage": {
+          "exact": "384/517",
+          "value": 0.742747
+        },
+        "coverage_by_category": {
+          "anonymized": {
+            "correct": 41,
+            "exact": "41/56",
+            "total": 56,
+            "value": 0.732143
+          },
+          "derived": {
+            "correct": 34,
+            "exact": "17/23",
+            "total": 46,
+            "value": 0.73913
+          },
+          "hidden": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 50,
+            "value": 0.0
+          },
+          "owned_deleted": {
+            "correct": 105,
+            "exact": "105/158",
+            "total": 158,
+            "value": 0.664557
+          },
+          "references": {
+            "correct": 2,
+            "exact": "2/5",
+            "total": 5,
+            "value": 0.4
+          },
+          "retained": {
+            "correct": 202,
+            "exact": "1/1",
+            "total": 202,
+            "value": 1.0
+          }
+        },
+        "coverage_by_stratum": {
+          "hidden=N,shared=N": {
+            "correct": 6,
+            "coverage": {
+              "exact": "1/1",
+              "value": 1.0
+            },
+            "subjects": 1,
+            "total": 6
+          },
+          "hidden=Y,shared=N": {
+            "correct": 248,
+            "coverage": {
+              "exact": "124/139",
+              "value": 0.892086
+            },
+            "subjects": 10,
+            "total": 278
+          },
+          "hidden=Y,shared=Y": {
+            "correct": 130,
+            "coverage": {
+              "exact": "130/233",
+              "value": 0.55794
+            },
+            "subjects": 9,
+            "total": 233
+          }
+        },
+        "coverage_committed_only": {
+          "exact": "331/368",
+          "value": 0.899457
+        },
+        "coverage_units": {
+          "correct": 384,
+          "total": 517
+        },
+        "discovery": {
+          "f1": {
+            "exact": "462/487",
+            "value": 0.948665
+          },
+          "fn": 50,
+          "fp": 0,
+          "precision": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "recall": {
+            "exact": "231/256",
+            "value": 0.902344
+          },
+          "recall_fk_truth": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "tp": 462
+        },
+        "hidden_truth_mismatches": 0,
+        "lae_outcomes": {
+          "FAILED": 13,
+          "PARTIAL": 1
+        },
+        "lae_rows_added_per_request": {
+          "max": 113,
+          "mean": 78.95,
+          "min": 40,
+          "n": 20,
+          "p50": 85.0,
+          "p95": 108.25
+        },
+        "latency_ms": {
+          "acknowledge": {
+            "max": 68.838,
+            "mean": 26.364,
+            "min": 5.457,
+            "n": 20,
+            "p50": 15.279,
+            "p95": 67.848
+          },
+          "approval": {
+            "max": 100.888,
+            "mean": 43.635,
+            "min": 22.154,
+            "n": 14,
+            "p50": 33.421,
+            "p95": 89.974
+          },
+          "discovery": {
+            "max": 294.529,
+            "mean": 150.891,
+            "min": 89.396,
+            "n": 20,
+            "p50": 121.784,
+            "p95": 263.591
+          },
+          "evidence": {
+            "max": 217.826,
+            "mean": 143.961,
+            "min": 51.256,
+            "n": 14,
+            "p50": 146.535,
+            "p95": 197.297
+          },
+          "execution": {
+            "max": 560.134,
+            "mean": 293.523,
+            "min": 169.667,
+            "n": 14,
+            "p50": 237.559,
+            "p95": 491.624
+          },
+          "planning": {
+            "max": 640.073,
+            "mean": 315.837,
+            "min": 169.422,
+            "n": 20,
+            "p50": 259.232,
+            "p95": 550.726
+          },
+          "request": {
+            "max": 24922.282,
+            "mean": 1326.65,
+            "min": 44.745,
+            "n": 20,
+            "p50": 89.118,
+            "p95": 1412.909
+          },
+          "total": {
+            "max": 25826.334,
+            "mean": 2516.731,
+            "min": 433.816,
+            "n": 20,
+            "p50": 1250.106,
+            "p95": 4169.135
+          },
+          "verification": {
+            "max": 995.764,
+            "mean": 420.537,
+            "min": 260.566,
+            "n": 14,
+            "p50": 350.884,
+            "p95": 786.929
+          }
+        },
+        "other_customers_deleted": 0,
+        "residual_hmac_rows": 56,
+        "residual_hmac_rows_before": 70,
+        "residual_probes_total": 109,
+        "residual_substring_rows": 60,
+        "residual_substring_rows_before": 86,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "shared_rows_modified": 3,
+        "status_counts": {
+          "BLOCKED": 6,
+          "COMMITTED": 14
+        },
+        "subjects": 20,
+        "subjects_with_ambiguous_probes": 4,
+        "subjects_with_zero_residual": 1,
+        "unrelated_damage": 0
+      },
+      "wall_ms": 57796.7
+    },
+    {
+      "confirmed_feedback_edge_list": [
+        "COLUMN:app.customer.email->app.marketing_event_log.email",
+        "TABLE:app.customer.email->app.marketing_event_log.email"
+      ],
+      "confirmed_feedback_edges": 2,
+      "lae_size_after_bytes": 3268608,
+      "lae_size_before_bytes": 2301952,
+      "lae_size_delta_bytes": 966656,
+      "method": "PROPOSED_LAE",
+      "metrics": {
+        "acknowledge_p50_ms": 12.805,
+        "acknowledge_p95_ms": 23.215,
+        "ambiguous_probes_excluded": 2,
+        "approval_p50_ms": 36.641,
+        "approval_p95_ms": 80.073,
+        "audit_events_per_request_mean": 8.7,
+        "blocked": 1,
+        "committed": 19,
+        "discovery_p50_ms": 121.675,
+        "discovery_p95_ms": 251.236,
+        "erasure_coverage": 0.976967,
+        "erasure_coverage_committed": 1.0,
+        "evidence_p50_ms": 133.302,
+        "evidence_p95_ms": 201.696,
+        "execution_p50_ms": 283.998,
+        "execution_p95_ms": 562.476,
+        "f1": 1.0,
+        "failed": 0,
+        "lae_schema_bytes_delta": 966656,
+        "outcome_partial": 19,
+        "planning_p50_ms": 276.713,
+        "planning_p95_ms": 499.635,
+        "precision": 1.0,
+        "recall": 1.0,
+        "recall_fk_truth": 1.0,
+        "request_p50_ms": 81.019,
+        "request_p95_ms": 124.549,
+        "residual_hmac_rows": 4,
+        "residual_substring_rows": 4,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "subjects": 20,
+        "total_p50_ms": 1319.161,
+        "total_p95_ms": 2625.683,
+        "unrelated_damage": 0,
+        "verification_p50_ms": 386.225,
+        "verification_p95_ms": 962.724
+      },
+      "params": {
+        "method": "PROPOSED_LAE",
+        "row_counts": {
+          "customer": 100,
+          "customer_address": 108,
+          "customer_profile_cache": 35,
+          "document": 50,
+          "document_embedding": 50,
+          "loyalty_account": 62,
+          "marketing_event_log": 300,
+          "order_line": 737,
+          "payment": 194,
+          "product": 50,
+          "purchase_order": 300,
+          "shipment": 223,
+          "support_ticket": 100,
+          "ticket_message": 276
+        },
+        "scale": "small",
+        "seed": 42,
+        "set": "S2_after_feedback",
+        "subjects": 20
+      },
+      "prepare_ms": {
+        "snapshot": 376.1
+      },
+      "scale": "small",
+      "scenario": "B5",
+      "set": "S2_after_feedback",
+      "setup_ms": {
+        "migrate_ms": 1153.7,
+        "seed_ms": 1252.5,
+        "vacuum_analyze_ms": 345.1
+      },
+      "summary": {
+        "ambiguous_probes_excluded_total": 2,
+        "audit_events_per_request": {
+          "max": 9,
+          "mean": 8.7,
+          "min": 3,
+          "n": 20,
+          "p50": 9.0,
+          "p95": 9.0
+        },
+        "coverage": {
+          "exact": "509/521",
+          "value": 0.976967
+        },
+        "coverage_by_category": {
+          "anonymized": {
+            "correct": 61,
+            "exact": "1/1",
+            "total": 61,
+            "value": 1.0
+          },
+          "derived": {
+            "correct": 46,
+            "exact": "1/1",
+            "total": 46,
+            "value": 1.0
+          },
+          "hidden": {
+            "correct": 58,
+            "exact": "58/61",
+            "total": 61,
+            "value": 0.95082
+          },
+          "owned_deleted": {
+            "correct": 101,
+            "exact": "101/110",
+            "total": 110,
+            "value": 0.918182
+          },
+          "references": {
+            "correct": 1,
+            "exact": "1/1",
+            "total": 1,
+            "value": 1.0
+          },
+          "retained": {
+            "correct": 242,
+            "exact": "1/1",
+            "total": 242,
+            "value": 1.0
+          }
+        },
+        "coverage_by_stratum": {
+          "hidden=Y,shared=N": {
+            "correct": 392,
+            "coverage": {
+              "exact": "1/1",
+              "value": 1.0
+            },
+            "subjects": 15,
+            "total": 392
+          },
+          "hidden=Y,shared=Y": {
+            "correct": 117,
+            "coverage": {
+              "exact": "39/43",
+              "value": 0.906977
+            },
+            "subjects": 5,
+            "total": 129
+          }
+        },
+        "coverage_committed_only": {
+          "exact": "1/1",
+          "value": 1.0
+        },
+        "coverage_units": {
+          "correct": 509,
+          "total": 521
+        },
+        "discovery": {
+          "f1": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "fn": 0,
+          "fp": 0,
+          "precision": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "recall": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "recall_fk_truth": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "tp": 520
+        },
+        "hidden_truth_mismatches": 0,
+        "lae_outcomes": {
+          "PARTIAL": 19
+        },
+        "lae_rows_added_per_request": {
+          "max": 126,
+          "mean": 90.25,
+          "min": 38,
+          "n": 20,
+          "p50": 91.0,
+          "p95": 122.2
+        },
+        "latency_ms": {
+          "acknowledge": {
+            "max": 42.138,
+            "mean": 14.403,
+            "min": 8.169,
+            "n": 20,
+            "p50": 12.805,
+            "p95": 23.215
+          },
+          "approval": {
+            "max": 125.88,
+            "mean": 43.147,
+            "min": 22.762,
+            "n": 19,
+            "p50": 36.641,
+            "p95": 80.073
+          },
+          "discovery": {
+            "max": 267.367,
+            "mean": 146.898,
+            "min": 88.973,
+            "n": 20,
+            "p50": 121.675,
+            "p95": 251.236
+          },
+          "evidence": {
+            "max": 205.476,
+            "mean": 137.48,
+            "min": 63.733,
+            "n": 19,
+            "p50": 133.302,
+            "p95": 201.696
+          },
+          "execution": {
+            "max": 691.552,
+            "mean": 323.862,
+            "min": 194.509,
+            "n": 19,
+            "p50": 283.998,
+            "p95": 562.476
+          },
+          "planning": {
+            "max": 560.164,
+            "mean": 302.266,
+            "min": 159.372,
+            "n": 20,
+            "p50": 276.713,
+            "p95": 499.635
+          },
+          "request": {
+            "max": 178.521,
+            "mean": 87.513,
+            "min": 48.675,
+            "n": 20,
+            "p50": 81.019,
+            "p95": 124.549
+          },
+          "total": {
+            "max": 2912.857,
+            "mean": 1559.92,
+            "min": 443.591,
+            "n": 20,
+            "p50": 1319.161,
+            "p95": 2625.683
+          },
+          "verification": {
+            "max": 972.692,
+            "mean": 480.981,
+            "min": 293.626,
+            "n": 19,
+            "p50": 386.225,
+            "p95": 962.724
+          }
+        },
+        "other_customers_deleted": 0,
+        "residual_hmac_rows": 4,
+        "residual_hmac_rows_before": 81,
+        "residual_probes_total": 114,
+        "residual_substring_rows": 4,
+        "residual_substring_rows_before": 93,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "shared_rows_modified": 4,
+        "status_counts": {
+          "BLOCKED": 1,
+          "COMMITTED": 19
+        },
+        "subjects": 20,
+        "subjects_with_ambiguous_probes": 1,
+        "subjects_with_zero_residual": 19,
+        "unrelated_damage": 0
+      },
+      "wall_ms": 39380.4
+    },
+    {
+      "confirmed_feedback_edge_list": [],
+      "confirmed_feedback_edges": 0,
+      "lae_size_after_bytes": 2318336,
+      "lae_size_before_bytes": 868352,
+      "lae_size_delta_bytes": 1449984,
+      "method": "PROPOSED_LAE",
+      "metrics": {
+        "acknowledge_p50_ms": 13.779,
+        "acknowledge_p95_ms": 64.227,
+        "ambiguous_probes_excluded": 34,
+        "approval_p50_ms": 28.736,
+        "approval_p95_ms": 51.049,
+        "audit_events_per_request_mean": 7.2,
+        "blocked": 6,
+        "committed": 14,
+        "discovery_p50_ms": 109.834,
+        "discovery_p95_ms": 165.527,
+        "erasure_coverage": 0.751332,
+        "erasure_coverage_committed": 0.898305,
+        "evidence_p50_ms": 128.584,
+        "evidence_p95_ms": 170.548,
+        "execution_p50_ms": 255.488,
+        "execution_p95_ms": 387.935,
+        "f1": 0.958295,
+        "failed": 0,
+        "lae_schema_bytes_delta": 1449984,
+        "outcome_failed": 8,
+        "outcome_partial": 6,
+        "planning_p50_ms": 301.694,
+        "planning_p95_ms": 447.417,
+        "precision": 1.0,
+        "recall": 0.919929,
+        "recall_fk_truth": 1.0,
+        "request_p50_ms": 65.21,
+        "request_p95_ms": 119.032,
+        "residual_hmac_rows": 51,
+        "residual_substring_rows": 60,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "subjects": 20,
+        "total_p50_ms": 1711.897,
+        "total_p95_ms": 2028.999,
+        "unrelated_damage": 0,
+        "verification_p50_ms": 831.753,
+        "verification_p95_ms": 907.427
+      },
+      "params": {
+        "method": "PROPOSED_LAE",
+        "row_counts": {
+          "customer": 1000,
+          "customer_address": 998,
+          "customer_profile_cache": 322,
+          "document": 500,
+          "document_embedding": 500,
+          "loyalty_account": 612,
+          "marketing_event_log": 3000,
+          "order_line": 7574,
+          "payment": 1969,
+          "product": 200,
+          "purchase_order": 3000,
+          "shipment": 2063,
+          "support_ticket": 1000,
+          "ticket_message": 2531
+        },
+        "scale": "default",
+        "seed": 42,
+        "set": "S1",
+        "subjects": 20
+      },
+      "prepare_ms": {
+        "snapshot": 418.1
+      },
+      "scale": "default",
+      "scenario": "B5",
+      "set": "S1",
+      "setup_ms": {
+        "migrate_ms": 974.9,
+        "seed_ms": 2023.1,
+        "vacuum_analyze_ms": 498.5
+      },
+      "summary": {
+        "ambiguous_probes_excluded_total": 34,
+        "audit_events_per_request": {
+          "max": 9,
+          "mean": 7.2,
+          "min": 3,
+          "n": 20,
+          "p50": 9.0,
+          "p95": 9.0
+        },
+        "coverage": {
+          "exact": "423/563",
+          "value": 0.751332
+        },
+        "coverage_by_category": {
+          "anonymized": {
+            "correct": 48,
+            "exact": "16/21",
+            "total": 63,
+            "value": 0.761905
+          },
+          "derived": {
+            "correct": 37,
+            "exact": "37/54",
+            "total": 54,
+            "value": 0.685185
+          },
+          "hidden": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 45,
+            "value": 0.0
+          },
+          "owned_deleted": {
+            "correct": 78,
+            "exact": "26/47",
+            "total": 141,
+            "value": 0.553191
+          },
+          "references": {
+            "correct": 1,
+            "exact": "1/1",
+            "total": 1,
+            "value": 1.0
+          },
+          "retained": {
+            "correct": 259,
+            "exact": "1/1",
+            "total": 259,
+            "value": 1.0
+          }
+        },
+        "coverage_by_stratum": {
+          "hidden=N,shared=N": {
+            "correct": 132,
+            "coverage": {
+              "exact": "1/1",
+              "value": 1.0
+            },
+            "subjects": 5,
+            "total": 132
+          },
+          "hidden=N,shared=Y": {
+            "correct": 48,
+            "coverage": {
+              "exact": "12/29",
+              "value": 0.413793
+            },
+            "subjects": 5,
+            "total": 116
+          },
+          "hidden=Y,shared=N": {
+            "correct": 162,
+            "coverage": {
+              "exact": "81/92",
+              "value": 0.880435
+            },
+            "subjects": 5,
+            "total": 184
+          },
+          "hidden=Y,shared=Y": {
+            "correct": 81,
+            "coverage": {
+              "exact": "81/131",
+              "value": 0.618321
+            },
+            "subjects": 5,
+            "total": 131
+          }
+        },
+        "coverage_committed_only": {
+          "exact": "53/59",
+          "value": 0.898305
+        },
+        "coverage_units": {
+          "correct": 423,
+          "total": 563
+        },
+        "discovery": {
+          "f1": {
+            "exact": "1034/1079",
+            "value": 0.958295
+          },
+          "fn": 45,
+          "fp": 0,
+          "precision": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "recall": {
+            "exact": "517/562",
+            "value": 0.919929
+          },
+          "recall_fk_truth": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "tp": 517
+        },
+        "hidden_truth_mismatches": 0,
+        "lae_outcomes": {
+          "FAILED": 8,
+          "PARTIAL": 6
+        },
+        "lae_rows_added_per_request": {
+          "max": 124,
+          "mean": 80.4,
+          "min": 50,
+          "n": 20,
+          "p50": 79.5,
+          "p95": 124.0
+        },
+        "latency_ms": {
+          "acknowledge": {
+            "max": 83.829,
+            "mean": 24.6,
+            "min": 6.163,
+            "n": 20,
+            "p50": 13.779,
+            "p95": 64.227
+          },
+          "approval": {
+            "max": 69.442,
+            "mean": 32.417,
+            "min": 21.113,
+            "n": 14,
+            "p50": 28.736,
+            "p95": 51.049
+          },
+          "discovery": {
+            "max": 195.32,
+            "mean": 115.689,
+            "min": 85.995,
+            "n": 20,
+            "p50": 109.834,
+            "p95": 165.527
+          },
+          "evidence": {
+            "max": 182.115,
+            "mean": 122.443,
+            "min": 57.328,
+            "n": 14,
+            "p50": 128.584,
+            "p95": 170.548
+          },
+          "execution": {
+            "max": 446.144,
+            "mean": 277.71,
+            "min": 172.578,
+            "n": 14,
+            "p50": 255.488,
+            "p95": 387.935
+          },
+          "planning": {
+            "max": 504.853,
+            "mean": 320.229,
+            "min": 254.259,
+            "n": 20,
+            "p50": 301.694,
+            "p95": 447.417
+          },
+          "request": {
+            "max": 120.809,
+            "mean": 73.195,
+            "min": 44.42,
+            "n": 20,
+            "p50": 65.21,
+            "p95": 119.032
+          },
+          "total": {
+            "max": 2142.276,
+            "mean": 1455.56,
+            "min": 512.262,
+            "n": 20,
+            "p50": 1711.897,
+            "p95": 2028.999
+          },
+          "verification": {
+            "max": 908.24,
+            "mean": 799.964,
+            "min": 503.019,
+            "n": 14,
+            "p50": 831.753,
+            "p95": 907.427
+          }
+        },
+        "other_customers_deleted": 0,
+        "residual_hmac_rows": 51,
+        "residual_hmac_rows_before": 65,
+        "residual_probes_total": 82,
+        "residual_substring_rows": 60,
+        "residual_substring_rows_before": 83,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "shared_rows_modified": 4,
+        "status_counts": {
+          "BLOCKED": 6,
+          "COMMITTED": 14
+        },
+        "subjects": 20,
+        "subjects_with_ambiguous_probes": 17,
+        "subjects_with_zero_residual": 6,
+        "unrelated_damage": 0
+      },
+      "wall_ms": 47774.0
+    },
+    {
+      "confirmed_feedback_edge_list": [
+        "COLUMN:app.customer.email->app.marketing_event_log.email",
+        "TABLE:app.customer.email->app.marketing_event_log.email"
+      ],
+      "confirmed_feedback_edges": 2,
+      "lae_size_after_bytes": 3194880,
+      "lae_size_before_bytes": 2318336,
+      "lae_size_delta_bytes": 876544,
+      "method": "PROPOSED_LAE",
+      "metrics": {
+        "acknowledge_p50_ms": 12.068,
+        "acknowledge_p95_ms": 44.304,
+        "ambiguous_probes_excluded": 28,
+        "approval_p50_ms": 28.85,
+        "approval_p95_ms": 35.03,
+        "audit_events_per_request_mean": 7.5,
+        "blocked": 5,
+        "committed": 15,
+        "discovery_p50_ms": 104.561,
+        "discovery_p95_ms": 154.745,
+        "erasure_coverage": 0.817996,
+        "erasure_coverage_committed": 1.0,
+        "evidence_p50_ms": 120.232,
+        "evidence_p95_ms": 196.454,
+        "execution_p50_ms": 209.686,
+        "execution_p95_ms": 307.756,
+        "f1": 1.0,
+        "failed": 0,
+        "lae_schema_bytes_delta": 876544,
+        "outcome_partial": 15,
+        "planning_p50_ms": 296.774,
+        "planning_p95_ms": 395.773,
+        "precision": 1.0,
+        "recall": 1.0,
+        "recall_fk_truth": 1.0,
+        "request_p50_ms": 72.09,
+        "request_p95_ms": 91.871,
+        "residual_hmac_rows": 10,
+        "residual_substring_rows": 16,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "subjects": 20,
+        "total_p50_ms": 1638.394,
+        "total_p95_ms": 1827.244,
+        "unrelated_damage": 0,
+        "verification_p50_ms": 792.819,
+        "verification_p95_ms": 858.781
+      },
+      "params": {
+        "method": "PROPOSED_LAE",
+        "row_counts": {
+          "customer": 1000,
+          "customer_address": 998,
+          "customer_profile_cache": 322,
+          "document": 500,
+          "document_embedding": 500,
+          "loyalty_account": 612,
+          "marketing_event_log": 3000,
+          "order_line": 7574,
+          "payment": 1969,
+          "product": 200,
+          "purchase_order": 3000,
+          "shipment": 2063,
+          "support_ticket": 1000,
+          "ticket_message": 2531
+        },
+        "scale": "default",
+        "seed": 42,
+        "set": "S2_after_feedback",
+        "subjects": 20
+      },
+      "prepare_ms": {
+        "snapshot": 418.1
+      },
+      "scale": "default",
+      "scenario": "B5",
+      "set": "S2_after_feedback",
+      "setup_ms": {
+        "migrate_ms": 974.9,
+        "seed_ms": 2023.1,
+        "vacuum_analyze_ms": 498.5
+      },
+      "summary": {
+        "ambiguous_probes_excluded_total": 28,
+        "audit_events_per_request": {
+          "max": 9,
+          "mean": 7.5,
+          "min": 3,
+          "n": 20,
+          "p50": 9.0,
+          "p95": 9.0
+        },
+        "coverage": {
+          "exact": "400/489",
+          "value": 0.817996
+        },
+        "coverage_by_category": {
+          "anonymized": {
+            "correct": 37,
+            "exact": "37/57",
+            "total": 57,
+            "value": 0.649123
+          },
+          "derived": {
+            "correct": 28,
+            "exact": "2/3",
+            "total": 42,
+            "value": 0.666667
+          },
+          "hidden": {
+            "correct": 34,
+            "exact": "34/39",
+            "total": 39,
+            "value": 0.871795
+          },
+          "owned_deleted": {
+            "correct": 80,
+            "exact": "8/13",
+            "total": 130,
+            "value": 0.615385
+          },
+          "references": {
+            "correct": 2,
+            "exact": "1/1",
+            "total": 2,
+            "value": 1.0
+          },
+          "retained": {
+            "correct": 219,
+            "exact": "1/1",
+            "total": 219,
+            "value": 1.0
+          }
+        },
+        "coverage_by_stratum": {
+          "hidden=N,shared=N": {
+            "correct": 80,
+            "coverage": {
+              "exact": "1/1",
+              "value": 1.0
+            },
+            "subjects": 5,
+            "total": 80
+          },
+          "hidden=N,shared=Y": {
+            "correct": 97,
+            "coverage": {
+              "exact": "97/172",
+              "value": 0.563953
+            },
+            "subjects": 5,
+            "total": 172
+          },
+          "hidden=Y,shared=N": {
+            "correct": 108,
+            "coverage": {
+              "exact": "1/1",
+              "value": 1.0
+            },
+            "subjects": 5,
+            "total": 108
+          },
+          "hidden=Y,shared=Y": {
+            "correct": 115,
+            "coverage": {
+              "exact": "115/129",
+              "value": 0.891473
+            },
+            "subjects": 5,
+            "total": 129
+          }
+        },
+        "coverage_committed_only": {
+          "exact": "1/1",
+          "value": 1.0
+        },
+        "coverage_units": {
+          "correct": 400,
+          "total": 489
+        },
+        "discovery": {
+          "f1": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "fn": 0,
+          "fp": 0,
+          "precision": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "recall": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "recall_fk_truth": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "tp": 487
+        },
+        "hidden_truth_mismatches": 0,
+        "lae_outcomes": {
+          "PARTIAL": 15
+        },
+        "lae_rows_added_per_request": {
+          "max": 99,
+          "mean": 78.95,
+          "min": 44,
+          "n": 20,
+          "p50": 81.5,
+          "p95": 98.05
+        },
+        "latency_ms": {
+          "acknowledge": {
+            "max": 49.964,
+            "mean": 19.086,
+            "min": 7.245,
+            "n": 20,
+            "p50": 12.068,
+            "p95": 44.304
+          },
+          "approval": {
+            "max": 35.519,
+            "mean": 29.021,
+            "min": 22.858,
+            "n": 15,
+            "p50": 28.85,
+            "p95": 35.03
+          },
+          "discovery": {
+            "max": 160.443,
+            "mean": 108.783,
+            "min": 86.405,
+            "n": 20,
+            "p50": 104.561,
+            "p95": 154.745
+          },
+          "evidence": {
+            "max": 208.679,
+            "mean": 119.487,
+            "min": 53.666,
+            "n": 15,
+            "p50": 120.232,
+            "p95": 196.454
+          },
+          "execution": {
+            "max": 315.436,
+            "mean": 224.507,
+            "min": 193.75,
+            "n": 15,
+            "p50": 209.686,
+            "p95": 307.756
+          },
+          "planning": {
+            "max": 467.613,
+            "mean": 301.766,
+            "min": 210.926,
+            "n": 20,
+            "p50": 296.774,
+            "p95": 395.773
+          },
+          "request": {
+            "max": 109.849,
+            "mean": 71.172,
+            "min": 44.363,
+            "n": 20,
+            "p50": 72.09,
+            "p95": 91.871
+          },
+          "total": {
+            "max": 1859.396,
+            "mean": 1427.411,
+            "min": 558.817,
+            "n": 20,
+            "p50": 1638.394,
+            "p95": 1827.244
+          },
+          "verification": {
+            "max": 870.849,
+            "mean": 789.054,
+            "min": 517.133,
+            "n": 15,
+            "p50": 792.819,
+            "p95": 858.781
+          }
+        },
+        "other_customers_deleted": 0,
+        "residual_hmac_rows": 10,
+        "residual_hmac_rows_before": 59,
+        "residual_probes_total": 88,
+        "residual_substring_rows": 16,
+        "residual_substring_rows_before": 71,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "shared_rows_modified": 5,
+        "status_counts": {
+          "BLOCKED": 5,
+          "COMMITTED": 15
+        },
+        "subjects": 20,
+        "subjects_with_ambiguous_probes": 15,
+        "subjects_with_zero_residual": 15,
+        "unrelated_damage": 0
+      },
+      "wall_ms": 46999.1
+    },
+    {
+      "confirmed_feedback_edge_list": [],
+      "confirmed_feedback_edges": 0,
+      "lae_size_after_bytes": 2449408,
+      "lae_size_before_bytes": 868352,
+      "lae_size_delta_bytes": 1581056,
+      "method": "PROPOSED_LAE",
+      "metrics": {
+        "acknowledge_p50_ms": 14.496,
+        "acknowledge_p95_ms": 33.192,
+        "ambiguous_probes_excluded": 39,
+        "approval_p50_ms": 46.384,
+        "approval_p95_ms": 109.385,
+        "audit_events_per_request_mean": 8.7,
+        "blocked": 1,
+        "committed": 19,
+        "discovery_p50_ms": 151.506,
+        "discovery_p95_ms": 285.487,
+        "erasure_coverage": 0.904159,
+        "erasure_coverage_committed": 0.923077,
+        "evidence_p50_ms": 132.326,
+        "evidence_p95_ms": 227.269,
+        "execution_p50_ms": 371.316,
+        "execution_p95_ms": 694.711,
+        "f1": 0.962406,
+        "failed": 0,
+        "lae_schema_bytes_delta": 1581056,
+        "outcome_failed": 10,
+        "outcome_partial": 9,
+        "planning_p50_ms": 947.707,
+        "planning_p95_ms": 1196.824,
+        "precision": 1.0,
+        "recall": 0.927536,
+        "recall_fk_truth": 1.0,
+        "request_p50_ms": 93.508,
+        "request_p95_ms": 123.551,
+        "residual_hmac_rows": 41,
+        "residual_substring_rows": 41,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "subjects": 20,
+        "total_p50_ms": 7510.646,
+        "total_p95_ms": 18336.498,
+        "unrelated_damage": 0,
+        "verification_p50_ms": 5693.895,
+        "verification_p95_ms": 25443.712
+      },
+      "params": {
+        "method": "PROPOSED_LAE",
+        "row_counts": {
+          "customer": 10000,
+          "customer_address": 10019,
+          "customer_profile_cache": 3000,
+          "document": 5000,
+          "document_embedding": 5000,
+          "loyalty_account": 5950,
+          "marketing_event_log": 30000,
+          "order_line": 75094,
+          "payment": 19805,
+          "product": 1000,
+          "purchase_order": 30000,
+          "shipment": 21406,
+          "support_ticket": 10000,
+          "ticket_message": 24897
+        },
+        "scale": "large",
+        "seed": 42,
+        "set": "S1",
+        "subjects": 20
+      },
+      "prepare_ms": {
+        "snapshot": 435.0
+      },
+      "scale": "large",
+      "scenario": "B5",
+      "set": "S1",
+      "setup_ms": {
+        "migrate_ms": 832.0,
+        "seed_ms": 10415.7,
+        "vacuum_analyze_ms": 2461.3
+      },
+      "summary": {
+        "ambiguous_probes_excluded_total": 39,
+        "audit_events_per_request": {
+          "max": 9,
+          "mean": 8.7,
+          "min": 3,
+          "n": 20,
+          "p50": 9.0,
+          "p95": 9.0
+        },
+        "coverage": {
+          "exact": "500/553",
+          "value": 0.904159
+        },
+        "coverage_by_category": {
+          "anonymized": {
+            "correct": 60,
+            "exact": "12/13",
+            "total": 65,
+            "value": 0.923077
+          },
+          "derived": {
+            "correct": 48,
+            "exact": "24/25",
+            "total": 50,
+            "value": 0.96
+          },
+          "hidden": {
+            "correct": 0,
+            "exact": "0/1",
+            "total": 40,
+            "value": 0.0
+          },
+          "owned_deleted": {
+            "correct": 125,
+            "exact": "125/131",
+            "total": 131,
+            "value": 0.954198
+          },
+          "references": {
+            "correct": 1,
+            "exact": "1/1",
+            "total": 1,
+            "value": 1.0
+          },
+          "retained": {
+            "correct": 266,
+            "exact": "1/1",
+            "total": 266,
+            "value": 1.0
+          }
+        },
+        "coverage_by_stratum": {
+          "hidden=N,shared=N": {
+            "correct": 131,
+            "coverage": {
+              "exact": "1/1",
+              "value": 1.0
+            },
+            "subjects": 5,
+            "total": 131
+          },
+          "hidden=N,shared=Y": {
+            "correct": 91,
+            "coverage": {
+              "exact": "7/8",
+              "value": 0.875
+            },
+            "subjects": 5,
+            "total": 104
+          },
+          "hidden=Y,shared=N": {
+            "correct": 100,
+            "coverage": {
+              "exact": "50/59",
+              "value": 0.847458
+            },
+            "subjects": 5,
+            "total": 118
+          },
+          "hidden=Y,shared=Y": {
+            "correct": 178,
+            "coverage": {
+              "exact": "89/100",
+              "value": 0.89
+            },
+            "subjects": 5,
+            "total": 200
+          }
+        },
+        "coverage_committed_only": {
+          "exact": "12/13",
+          "value": 0.923077
+        },
+        "coverage_units": {
+          "correct": 500,
+          "total": 553
+        },
+        "discovery": {
+          "f1": {
+            "exact": "128/133",
+            "value": 0.962406
+          },
+          "fn": 40,
+          "fp": 0,
+          "precision": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "recall": {
+            "exact": "64/69",
+            "value": 0.927536
+          },
+          "recall_fk_truth": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "tp": 512
+        },
+        "hidden_truth_mismatches": 0,
+        "lae_outcomes": {
+          "FAILED": 10,
+          "PARTIAL": 9
+        },
+        "lae_rows_added_per_request": {
+          "max": 150,
+          "mean": 90.0,
+          "min": 61,
+          "n": 20,
+          "p50": 90.0,
+          "p95": 119.6
+        },
+        "latency_ms": {
+          "acknowledge": {
+            "max": 38.332,
+            "mean": 16.393,
+            "min": 6.082,
+            "n": 20,
+            "p50": 14.496,
+            "p95": 33.192
+          },
+          "approval": {
+            "max": 111.244,
+            "mean": 55.495,
+            "min": 22.376,
+            "n": 19,
+            "p50": 46.384,
+            "p95": 109.385
+          },
+          "discovery": {
+            "max": 314.889,
+            "mean": 166.25,
+            "min": 91.828,
+            "n": 20,
+            "p50": 151.506,
+            "p95": 285.487
+          },
+          "evidence": {
+            "max": 259.35,
+            "mean": 141.764,
+            "min": 62.249,
+            "n": 19,
+            "p50": 132.326,
+            "p95": 227.269
+          },
+          "execution": {
+            "max": 717.479,
+            "mean": 422.595,
+            "min": 224.392,
+            "n": 19,
+            "p50": 371.316,
+            "p95": 694.711
+          },
+          "planning": {
+            "max": 1323.631,
+            "mean": 967.32,
+            "min": 770.637,
+            "n": 20,
+            "p50": 947.707,
+            "p95": 1196.824
+          },
+          "request": {
+            "max": 152.283,
+            "mean": 91.193,
+            "min": 50.904,
+            "n": 20,
+            "p50": 93.508,
+            "p95": 123.551
+          },
+          "total": {
+            "max": 194773.41,
+            "mean": 16607.236,
+            "min": 1170.871,
+            "n": 20,
+            "p50": 7510.646,
+            "p95": 18336.498
+          },
+          "verification": {
+            "max": 192758.04,
+            "mean": 15476.699,
+            "min": 3048.572,
+            "n": 19,
+            "p50": 5693.895,
+            "p95": 25443.712
+          }
+        },
+        "other_customers_deleted": 0,
+        "residual_hmac_rows": 41,
+        "residual_hmac_rows_before": 60,
+        "residual_probes_total": 78,
+        "residual_substring_rows": 41,
+        "residual_substring_rows_before": 76,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "shared_rows_modified": 9,
+        "status_counts": {
+          "BLOCKED": 1,
+          "COMMITTED": 19
+        },
+        "subjects": 20,
+        "subjects_with_ambiguous_probes": 20,
+        "subjects_with_zero_residual": 9,
+        "unrelated_damage": 0
+      },
+      "wall_ms": 501453.3
+    },
+    {
+      "confirmed_feedback_edge_list": [
+        "COLUMN:app.customer.email->app.marketing_event_log.email",
+        "TABLE:app.customer.email->app.marketing_event_log.email"
+      ],
+      "confirmed_feedback_edges": 2,
+      "lae_size_after_bytes": 3325952,
+      "lae_size_before_bytes": 2449408,
+      "lae_size_delta_bytes": 876544,
+      "method": "PROPOSED_LAE",
+      "metrics": {
+        "acknowledge_p50_ms": 15.404,
+        "acknowledge_p95_ms": 99.059,
+        "ambiguous_probes_excluded": 40,
+        "approval_p50_ms": 25.889,
+        "approval_p95_ms": 45.149,
+        "audit_events_per_request_mean": 7.2,
+        "blocked": 6,
+        "committed": 14,
+        "discovery_p50_ms": 108.426,
+        "discovery_p95_ms": 182.251,
+        "erasure_coverage": 0.827338,
+        "erasure_coverage_committed": 1.0,
+        "evidence_p50_ms": 127.523,
+        "evidence_p95_ms": 212.575,
+        "execution_p50_ms": 313.81,
+        "execution_p95_ms": 470.479,
+        "f1": 1.0,
+        "failed": 0,
+        "lae_schema_bytes_delta": 876544,
+        "outcome_partial": 14,
+        "planning_p50_ms": 850.559,
+        "planning_p95_ms": 1035.118,
+        "precision": 1.0,
+        "recall": 1.0,
+        "recall_fk_truth": 1.0,
+        "request_p50_ms": 90.535,
+        "request_p95_ms": 104.467,
+        "residual_hmac_rows": 10,
+        "residual_substring_rows": 14,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "subjects": 20,
+        "total_p50_ms": 6710.029,
+        "total_p95_ms": 7397.691,
+        "unrelated_damage": 0,
+        "verification_p50_ms": 5294.479,
+        "verification_p95_ms": 5688.502
+      },
+      "params": {
+        "method": "PROPOSED_LAE",
+        "row_counts": {
+          "customer": 10000,
+          "customer_address": 10019,
+          "customer_profile_cache": 3000,
+          "document": 5000,
+          "document_embedding": 5000,
+          "loyalty_account": 5950,
+          "marketing_event_log": 30000,
+          "order_line": 75094,
+          "payment": 19805,
+          "product": 1000,
+          "purchase_order": 30000,
+          "shipment": 21406,
+          "support_ticket": 10000,
+          "ticket_message": 24897
+        },
+        "scale": "large",
+        "seed": 42,
+        "set": "S2_after_feedback",
+        "subjects": 20
+      },
+      "prepare_ms": {
+        "snapshot": 435.0
+      },
+      "scale": "large",
+      "scenario": "B5",
+      "set": "S2_after_feedback",
+      "setup_ms": {
+        "migrate_ms": 832.0,
+        "seed_ms": 10415.7,
+        "vacuum_analyze_ms": 2461.3
+      },
+      "summary": {
+        "ambiguous_probes_excluded_total": 40,
+        "audit_events_per_request": {
+          "max": 9,
+          "mean": 7.2,
+          "min": 3,
+          "n": 20,
+          "p50": 9.0,
+          "p95": 9.0
+        },
+        "coverage": {
+          "exact": "115/139",
+          "value": 0.827338
+        },
+        "coverage_by_category": {
+          "anonymized": {
+            "correct": 43,
+            "exact": "43/65",
+            "total": 65,
+            "value": 0.661538
+          },
+          "derived": {
+            "correct": 34,
+            "exact": "17/25",
+            "total": 50,
+            "value": 0.68
+          },
+          "hidden": {
+            "correct": 20,
+            "exact": "5/6",
+            "total": 24,
+            "value": 0.833333
+          },
+          "owned_deleted": {
+            "correct": 86,
+            "exact": "86/139",
+            "total": 139,
+            "value": 0.618705
+          },
+          "references": {
+            "correct": 2,
+            "exact": "2/3",
+            "total": 3,
+            "value": 0.666667
+          },
+          "retained": {
+            "correct": 275,
+            "exact": "1/1",
+            "total": 275,
+            "value": 1.0
+          }
+        },
+        "coverage_by_stratum": {
+          "hidden=N,shared=N": {
+            "correct": 84,
+            "coverage": {
+              "exact": "1/1",
+              "value": 1.0
+            },
+            "subjects": 5,
+            "total": 84
+          },
+          "hidden=N,shared=Y": {
+            "correct": 134,
+            "coverage": {
+              "exact": "134/177",
+              "value": 0.757062
+            },
+            "subjects": 5,
+            "total": 177
+          },
+          "hidden=Y,shared=N": {
+            "correct": 136,
+            "coverage": {
+              "exact": "1/1",
+              "value": 1.0
+            },
+            "subjects": 5,
+            "total": 136
+          },
+          "hidden=Y,shared=Y": {
+            "correct": 106,
+            "coverage": {
+              "exact": "2/3",
+              "value": 0.666667
+            },
+            "subjects": 5,
+            "total": 159
+          }
+        },
+        "coverage_committed_only": {
+          "exact": "1/1",
+          "value": 1.0
+        },
+        "coverage_units": {
+          "correct": 460,
+          "total": 556
+        },
+        "discovery": {
+          "f1": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "fn": 0,
+          "fp": 0,
+          "precision": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "recall": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "recall_fk_truth": {
+            "exact": "1/1",
+            "value": 1.0
+          },
+          "tp": 553
+        },
+        "hidden_truth_mismatches": 0,
+        "lae_outcomes": {
+          "PARTIAL": 14
+        },
+        "lae_rows_added_per_request": {
+          "max": 125,
+          "mean": 83.25,
+          "min": 51,
+          "n": 20,
+          "p50": 79.0,
+          "p95": 113.6
+        },
+        "latency_ms": {
+          "acknowledge": {
+            "max": 114.982,
+            "mean": 28.532,
+            "min": 6.474,
+            "n": 20,
+            "p50": 15.404,
+            "p95": 99.059
+          },
+          "approval": {
+            "max": 48.214,
+            "mean": 31.022,
+            "min": 21.077,
+            "n": 14,
+            "p50": 25.889,
+            "p95": 45.149
+          },
+          "discovery": {
+            "max": 247.083,
+            "mean": 121.506,
+            "min": 79.62,
+            "n": 20,
+            "p50": 108.426,
+            "p95": 182.251
+          },
+          "evidence": {
+            "max": 219.159,
+            "mean": 141.134,
+            "min": 61.487,
+            "n": 14,
+            "p50": 127.523,
+            "p95": 212.575
+          },
+          "execution": {
+            "max": 471.609,
+            "mean": 333.058,
+            "min": 234.731,
+            "n": 14,
+            "p50": 313.81,
+            "p95": 470.479
+          },
+          "planning": {
+            "max": 1086.299,
+            "mean": 830.191,
+            "min": 555.04,
+            "n": 20,
+            "p50": 850.559,
+            "p95": 1035.118
+          },
+          "request": {
+            "max": 105.59,
+            "mean": 81.572,
+            "min": 47.222,
+            "n": 20,
+            "p50": 90.535,
+            "p95": 104.467
+          },
+          "total": {
+            "max": 7943.57,
+            "mean": 4995.499,
+            "min": 790.129,
+            "n": 20,
+            "p50": 6710.029,
+            "p95": 7397.691
+          },
+          "verification": {
+            "max": 6061.323,
+            "mean": 5023.625,
+            "min": 2863.705,
+            "n": 14,
+            "p50": 5294.479,
+            "p95": 5688.502
+          }
+        },
+        "other_customers_deleted": 0,
+        "residual_hmac_rows": 10,
+        "residual_hmac_rows_before": 44,
+        "residual_probes_total": 74,
+        "residual_substring_rows": 14,
+        "residual_substring_rows_before": 58,
+        "retention_violations": 0,
+        "shared_rows_deleted": 0,
+        "shared_rows_modified": 4,
+        "status_counts": {
+          "BLOCKED": 6,
+          "COMMITTED": 14
+        },
+        "subjects": 20,
+        "subjects_with_ambiguous_probes": 20,
+        "subjects_with_zero_residual": 14,
+        "unrelated_damage": 0
+      },
+      "wall_ms": 239760.7
+    }
+  ],
+  "scales": {
+    "default": {
+      "S1": [
+        647,
+        935,
+        273,
+        29,
+        831,
+        675,
+        878,
+        554,
+        238,
+        697,
+        653,
+        756,
+        378,
+        395,
+        768,
+        859,
+        354,
+        91,
+        248,
+        595
+      ],
+      "S1_strata": {
+        "hidden=N,shared=N": 5,
+        "hidden=N,shared=Y": 5,
+        "hidden=Y,shared=N": 5,
+        "hidden=Y,shared=Y": 5
+      },
+      "S2": [
+        903,
+        318,
+        752,
+        367,
+        741,
+        551,
+        515,
+        518,
+        804,
+        747,
+        294,
+        762,
+        808,
+        581,
+        340,
+        907,
+        617,
+        212,
+        87,
+        638
+      ],
+      "S2_strata": {
+        "hidden=N,shared=N": 5,
+        "hidden=N,shared=Y": 5,
+        "hidden=Y,shared=N": 5,
+        "hidden=Y,shared=Y": 5
+      },
+      "row_counts": {
+        "customer": 1000,
+        "customer_address": 998,
+        "customer_profile_cache": 322,
+        "document": 500,
+        "document_embedding": 500,
+        "loyalty_account": 612,
+        "marketing_event_log": 3000,
+        "order_line": 7574,
+        "payment": 1969,
+        "product": 200,
+        "purchase_order": 3000,
+        "shipment": 2063,
+        "support_ticket": 1000,
+        "ticket_message": 2531
+      },
+      "scale_params": {
+        "anonymous_ticket_pct": 5,
+        "cache_pct": 30,
+        "customers": 1000,
+        "documents": 500,
+        "embeddings": 500,
+        "guest_order_pct": 3,
+        "loyalty_pct": 60,
+        "marketing_events": 3000,
+        "max_addresses_per_customer": 2,
+        "max_lines_per_order": 4,
+        "max_messages_per_ticket": 4,
+        "no_phone_pct": 10,
+        "orders": 3000,
+        "products": 200,
+        "referral_pct": 10,
+        "shared_message_pct": 5,
+        "shipment_pct": 70,
+        "tickets": 1000
+      },
+      "wall_s": 249.3
+    },
+    "large": {
+      "S1": [
+        9137,
+        9913,
+        6363,
+        7153,
+        7093,
+        6697,
+        4040,
+        6636,
+        8105,
+        2354,
+        9672,
+        2126,
+        5867,
+        7732,
+        4148,
+        4568,
+        296,
+        948,
+        7908,
+        608
+      ],
+      "S1_strata": {
+        "hidden=N,shared=N": 5,
+        "hidden=N,shared=Y": 5,
+        "hidden=Y,shared=N": 5,
+        "hidden=Y,shared=Y": 5
+      },
+      "S2": [
+        92,
+        3253,
+        3470,
+        2247,
+        5947,
+        2909,
+        7420,
+        9516,
+        4586,
+        3521,
+        6667,
+        7171,
+        8264,
+        3796,
+        4955,
+        4879,
+        3460,
+        9358,
+        9819,
+        2938
+      ],
+      "S2_strata": {
+        "hidden=N,shared=N": 5,
+        "hidden=N,shared=Y": 5,
+        "hidden=Y,shared=N": 5,
+        "hidden=Y,shared=Y": 5
+      },
+      "row_counts": {
+        "customer": 10000,
+        "customer_address": 10019,
+        "customer_profile_cache": 3000,
+        "document": 5000,
+        "document_embedding": 5000,
+        "loyalty_account": 5950,
+        "marketing_event_log": 30000,
+        "order_line": 75094,
+        "payment": 19805,
+        "product": 1000,
+        "purchase_order": 30000,
+        "shipment": 21406,
+        "support_ticket": 10000,
+        "ticket_message": 24897
+      },
+      "scale_params": {
+        "anonymous_ticket_pct": 5,
+        "cache_pct": 30,
+        "customers": 10000,
+        "documents": 5000,
+        "embeddings": 5000,
+        "guest_order_pct": 3,
+        "loyalty_pct": 60,
+        "marketing_events": 30000,
+        "max_addresses_per_customer": 2,
+        "max_lines_per_order": 4,
+        "max_messages_per_ticket": 4,
+        "no_phone_pct": 10,
+        "orders": 30000,
+        "products": 1000,
+        "referral_pct": 10,
+        "shared_message_pct": 5,
+        "shipment_pct": 70,
+        "tickets": 10000
+      },
+      "wall_s": 1217.7
+    },
+    "small": {
+      "S1": [
+        30,
+        71,
+        42,
+        25,
+        41,
+        76,
+        35,
+        45,
+        46,
+        9,
+        1,
+        47,
+        50,
+        23,
+        13,
+        28,
+        37,
+        66,
+        98,
+        79
+      ],
+      "S1_strata": {
+        "hidden=N,shared=N": 1,
+        "hidden=Y,shared=N": 10,
+        "hidden=Y,shared=Y": 9
+      },
+      "S2": [
+        22,
+        53,
+        88,
+        74,
+        96,
+        67,
+        61,
+        80,
+        65,
+        83,
+        51,
+        92,
+        58,
+        70,
+        91,
+        99,
+        59,
+        68,
+        34,
+        38
+      ],
+      "S2_strata": {
+        "hidden=Y,shared=N": 15,
+        "hidden=Y,shared=Y": 5
+      },
+      "row_counts": {
+        "customer": 100,
+        "customer_address": 108,
+        "customer_profile_cache": 35,
+        "document": 50,
+        "document_embedding": 50,
+        "loyalty_account": 62,
+        "marketing_event_log": 300,
+        "order_line": 737,
+        "payment": 194,
+        "product": 50,
+        "purchase_order": 300,
+        "shipment": 223,
+        "support_ticket": 100,
+        "ticket_message": 276
+      },
+      "scale_params": {
+        "anonymous_ticket_pct": 5,
+        "cache_pct": 30,
+        "customers": 100,
+        "documents": 50,
+        "embeddings": 50,
+        "guest_order_pct": 3,
+        "loyalty_pct": 60,
+        "marketing_events": 300,
+        "max_addresses_per_customer": 2,
+        "max_lines_per_order": 4,
+        "max_messages_per_ticket": 4,
+        "no_phone_pct": 10,
+        "orders": 300,
+        "products": 50,
+        "referral_pct": 10,
+        "shared_message_pct": 5,
+        "shipment_pct": 70,
+        "tickets": 100
+      },
+      "wall_s": 157.2
+    }
+  },
+  "seed": 42,
+  "started_at": "2026-11-04T18:09:40+00:00",
+  "subjects_per_set": 20
+}
