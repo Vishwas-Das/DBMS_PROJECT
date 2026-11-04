@@ -306,6 +306,8 @@ class RecordDiscoveryResult:          # lives in lae.lineage (it holds a RecordG
     warnings: tuple[str, ...]
 ```
 
+Accepted refinements (change request graph-engineer-1): `pii: … | None = None`. `DeletionOrder` uses tuples. Optional `statuses` on `reachable_from`/`table_cycles`/`to_node_link` (node-link defaults to all statuses). **COLUMN-level edges are always single-pair.** Re-visited records keep the most protective role. Unknown tables in queries raise `UnknownTableError`.
+
 Determinism requirement: all outputs are sorted (by `TableRef`, then key values) so that hashes are reproducible across runs and platforms.
 
 ---

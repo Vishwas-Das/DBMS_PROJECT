@@ -22,12 +22,12 @@ Rule: an item is ticked only when an automated test has passed against the real 
 | 2 | PostgreSQL storage (`lae` Alembic baseline, `app` slice schema) | db · DB Eng | [ ] |
 | 3 | Foreign-key discovery (catalog + FKs from pg_catalog) | discovery · Discovery Eng | [ ] |
 | 4 | Record-level dependency identification | discovery · Discovery Eng | [ ] |
-| 5 | NetworkX lineage graph + RecordGraph | lineage · Graph Eng | [ ] |
+| 5 | NetworkX lineage graph + RecordGraph | lineage · Graph Eng | [x] 49 tests, 100 % coverage, verified by Lead |
 | 6 | Erasure plan generation (+ hash, conflicts subset) | planner · Erasure Eng | [ ] |
 | 7 | Dry-run execution (rollback, counts) | executor · Erasure Eng | [ ] |
 | 8 | Approved erasure (hash-bound, drift check, rowcount assertions) | executor + services · Erasure Eng / Lead | [ ] |
 | 9 | Verification (ROW_ABSENT, CASCADE_COMPLETE, REFERENCE_NULLIFIED, REDISCOVERY_EMPTY) checked against the DB | verification · Crypto Eng | [ ] |
-| 10 | Audit evidence (canonical JSON, hash chain, Merkle, Ed25519, offline verify) | audit · Crypto Eng | [ ] |
+| 10 | Audit evidence (canonical JSON, hash chain, Merkle, Ed25519, offline verify) | audit · Crypto Eng | [~] canonical JSON done (Lead). Primitives: agent running |
 | 11 | Service-layer integration + CLI `lae erase` end-to-end | services/cli · Lead | [ ] |
 | 12 | E2E test: actual DB row counts before/after equal ground truth | tests/e2e · QA | [ ] |
 
@@ -45,3 +45,5 @@ Rule: an item is ticked only when an automated test has passed against the real 
 | Date | Blocker | Impact | Owner | Resolution |
 |---|---|---|---|---|
 | 2026-11-04 | WSL2/Docker Desktop not installed. Shell not elevated | Can't run `docker compose`. Integration tests need some PostgreSQL | User | pending |
+| 2026-11-04 | Re-checked after the user said Docker was installed: **no Docker found** (no docker.exe, no registry entry, not on PATH). `wsl --status`: Virtual Machine Platform component not enabled | DB stages 1–4, 7–9 blocked | User | pending: needs admin `wsl --install --no-distribution`, reboot, Docker Desktop |
+| 2026-11-04 | `.claude/agents/*` not loaded as agent types (created mid-session) | Specialists run as general-purpose agents that load their role file | Lead | workaround in place. Loads natively next session |
