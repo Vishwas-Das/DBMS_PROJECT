@@ -5,15 +5,15 @@ Rule: an item is ticked only when an automated test has passed against the real 
 
 ## Environment
 - [x] Git repository initialised (`main`)
-- [ ] Python venv + backend packages
+- [x] Python venv + backend packages (SQLAlchemy 2.1.8, SQLGlot 30.29.0, NetworkX 3.7, psycopg 3.3.8, cryptography 50.0.2)
 - [!] WSL2 + Docker Desktop. **Blocked: needs admin + reboot (user action)**
 - [ ] PostgreSQL 16 + pgcrypto reachable for integration tests
 - [ ] pgvector available (deferred: not needed for the vertical slice)
 
 ## M0: Contracts
-- [ ] `backend/pyproject.toml` (package `lae`, pytest markers, ruff, mypy, import-linter)
-- [ ] `lae.errors`, `lae.config`, `lae.contracts.{enums,types,ports}`
-- [ ] Contract smoke tests (`pytest -m unit`)
+- [x] `backend/pyproject.toml` (package `lae`, pytest markers, ruff, mypy, import-linter)
+- [x] `lae.errors`, `lae.config`, `lae.contracts.{enums,types,ports}`
+- [x] Contract smoke tests: 8 passed. ruff clean. mypy --strict clean. import-linter 4/4 kept
 
 ## Vertical slice VS-1 (core only: FK lineage, DELETE/EXPECT_CASCADE/NULLIFY_REFERENCE)
 | # | Stage | Module / owner | Status |

@@ -35,7 +35,7 @@ flowchart TD
 | `discovery` | contracts, errors, lineage, `sqlglot`, audit.canonical / audit.hmac_keys (hashing only) |
 | `planner` | contracts, errors, lineage, audit.canonical / audit.hmac_keys (hashing only) |
 | `executor` | contracts, errors |
-| `verification` | contracts, errors, audit.hmac_keys |
+| `verification` | contracts, errors, audit.hmac_keys, lineage (`RecordDiscoveryResult`, `RecordGraph` types) |
 | `db` | contracts, errors, config, SQLAlchemy, psycopg, pgvector |
 | `services` | everything above |
 | `api` | services, contracts, errors, config, FastAPI |
@@ -206,7 +206,8 @@ class TargetReader(Protocol):
                           select: Sequence[str]) -> list[dict[str, Any]]: ...
     def count_by_columns(self, table: TableRef, columns: Sequence[str],
                          values: Sequence[tuple[KeyValue, ...]]) -> int: ...
-    def fetch_columns(self, key: RecordKey, columns: Sequence[str]) -> dict[str, Any]: ...
+    def fetch_columns(self, table: TableRef, key_columns: Sequence[str], key: KeyTuple,
+                      columns: Sequence[str]) -> dict[str, Any] | None: ...   # None if row absent
     def run_readonly_sql(self, sql: str, params: Mapping[str, Any]) -> list[tuple]: ...  # artifact definitions only
     def hmac_match_count(self, col: ColumnRef, digests: Sequence[str],
                          normalization: Normalization, hmac_key: bytes) -> int: ...
@@ -292,6 +293,17 @@ class RecordGraph:
         # raises GraphIntegrityError(code="UNBREAKABLE_CYCLE") if an SCC has no nullable edge
     def record_set_hash(self) -> str                                             # sha256 of sorted canonical keys
     def to_node_link(self, key_hmac: Callable[[RecordKey], str]) -> dict
+```
+
+```python
+@dataclass(frozen=True, slots=True)
+class RecordAttrs:  role: RecordRole; depth: int; via_edge_ids: tuple[UUID, ...]
+
+@dataclass(frozen=True, slots=True)
+class RecordDiscoveryResult:          # lives in lae.lineage (it holds a RecordGraph);
+    record_graph: RecordGraph         # produced by discovery, consumed by planner + verification
+    affected_artifacts: Mapping[TableRef, Traceability]
+    warnings: tuple[str, ...]
 ```
 
 Determinism requirement: all outputs are sorted (by `TableRef`, then key values) so that hashes are reproducible across runs and platforms.
