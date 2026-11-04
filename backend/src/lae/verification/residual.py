@@ -4,7 +4,9 @@ For every column in ``scan_columns`` (all text-like columns of all target tables
 the service from the catalog, *not* from lineage), and for every normalization used by the
 probes, ``reader.hmac_match_count`` counts the rows whose normalized HMAC equals one of the
 probe digests (pgcrypto in the database). Hits are reported as ``{table, column, count}``;
-values never leave the database.
+values never leave the database. ``count`` is the number of *matches summed over
+normalizations*: a row that matches both EXACT and LOWER_TRIM counts twice (the port has no
+any-normalization row count yet, CR verification-crypto-engineer-3 §4). Pass/fail is unaffected.
 
 Hits in a table whose policy is ``RETAIN`` *and* for which the plan has a ``RETAIN_ROWS`` item
 are expected (legal hold keeps the row untouched) and are reported separately as

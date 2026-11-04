@@ -24,8 +24,15 @@ from types import MappingProxyType
 from typing import Any
 
 from lae.audit.canonical import canonical_json
-from lae.audit.evidence import ChainAnchor, _InputError, _parse_events, _strict_loads
-from lae.audit.hashchain import is_hex64, verify_chain
+from lae.audit.evidence import (
+    ChainAnchor,
+    _InputError,
+    _parse_events_checked,
+    _strict_loads,
+    chain_segment_error,
+    first_envelope_mismatch,
+)
+from lae.audit.hashchain import is_hex64
 from lae.audit.signing import Signer, public_key_id, verify_signature
 from lae.contracts.types import AuditEventRecord
 from lae.errors import SignatureError, ValidationError
@@ -162,16 +169,22 @@ def verify_anchor(
     if chain is not None:
         chain_ok = False
         try:
-            events = _parse_events(chain) if isinstance(chain, str) else list(chain)
+            if isinstance(chain, str):
+                events, envelope_bad = _parse_events_checked(chain)
+            else:
+                events = list(chain)
+                envelope_bad = first_envelope_mismatch(events)
             if not events:
                 raise _InputError("chain: export is empty")
-            result = verify_chain(events, expected_start_prev=events[0].prev_hash)
-            if not result.valid:
-                errors.append(
-                    f"audit chain invalid at seq {result.first_invalid_seq} ({result.reason})"
-                )
-            elif not any(e.seq == seq and e.event_hash == event_hash for e in events):
-                errors.append("anchored event not found in the audit chain")
+            error = chain_segment_error(
+                events,
+                envelope_bad,
+                seq,
+                event_hash,
+                not_found="anchored event not found in the audit chain",
+            )
+            if error is not None:
+                errors.append(error)
             else:
                 chain_ok = True
         except _InputError as exc:

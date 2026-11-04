@@ -46,6 +46,7 @@ from lae.api.schemas import (
     StepResultOut,
     VerificationOut,
 )
+from lae.audit.evidence import first_envelope_mismatch
 from lae.audit.hashchain import verify_chain
 from lae.audit.signing import verify_signature
 from lae.contracts.enums import (
@@ -568,16 +569,9 @@ class LaeServices:
         reason = getattr(res, "reason", None)
         valid = res.valid
         first_bad = res.first_invalid_seq
-        if valid:  # the envelope must also match the row columns (CR crypto-1 §1)
-            for e in events:
-                env = json.loads(e.payload_canonical).get("envelope", {})
-                if (
-                    env.get("entity_type") != e.entity_type
-                    or env.get("actor") != e.actor
-                    or env.get("entity_id") != (str(e.entity_id) if e.entity_id else None)
-                ):
-                    valid, first_bad, reason = False, e.seq, "ENVELOPE_MISMATCH"
-                    break
+        bad_env = first_envelope_mismatch(events)  # actor/occurred_at/entity columns (CR crypto-3)
+        if bad_env is not None and (first_bad is None or bad_env < first_bad):
+            valid, first_bad, reason = False, bad_env, "ENVELOPE_MISMATCH"
         return ChainVerificationOut(
             valid=valid,
             checked_events=res.checked_events,

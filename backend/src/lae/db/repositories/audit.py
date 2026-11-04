@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Collection
+from datetime import UTC
 from typing import Any
 from uuid import UUID
 
@@ -106,7 +107,9 @@ class AuditRepo(Repo):
                 "entity_type": e.entity_type,
                 "entity_id": None if e.entity_id is None else str(e.entity_id),
                 "actor": e.actor,
-                "occurred_at": e.occurred_at.isoformat().replace("+00:00", "Z"),
+                "occurred_at": e.occurred_at.astimezone(UTC)
+                .isoformat(timespec="microseconds")
+                .replace("+00:00", "Z"),
                 "payload_canonical": e.payload_canonical,
                 "prev_hash": e.prev_hash,
                 "event_hash": e.event_hash,

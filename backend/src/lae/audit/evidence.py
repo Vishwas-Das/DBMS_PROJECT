@@ -89,6 +89,7 @@ BUNDLE_FIELDS = frozenset(
 EXPORT_FIELDS = frozenset({"bundle", "signature"})
 LEAF_FIELDS = frozenset({"table", "key_hmac", "action", "check_types", "passed"})
 _EVENT_REQUIRED = ("seq", "event_type", "payload_canonical", "prev_hash", "event_hash")
+_ENVELOPE_FIELDS = ("entity_type", "entity_id", "actor", "occurred_at")
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 
@@ -397,8 +398,117 @@ def _parse_leaves(text: str) -> list[EvidenceLeaf]:
     return leaves
 
 
-def _parse_events(text: str) -> list[AuditEventRecord]:
+def _same_instant(a: object, b: object) -> bool:
+    """Both ``None``, or both aware timestamps (``datetime`` or ISO-8601 text) of one instant."""
+    if a is None or b is None:
+        return a is None and b is None
+    try:
+        da = a if isinstance(a, datetime) else datetime.fromisoformat(a)  # type: ignore[arg-type]
+        db = b if isinstance(b, datetime) else datetime.fromisoformat(b)  # type: ignore[arg-type]
+        if da.utcoffset() is None or db.utcoffset() is None:
+            return False
+        return da == db
+    except (TypeError, ValueError):
+        return False
+
+
+def _same_uuid(a: object, b: object) -> bool:
+    if a is None or b is None:
+        return a is None and b is None
+    try:
+        return UUID(str(a)) == UUID(str(b))
+    except ValueError:
+        return False
+
+
+def envelope_mismatch(columns: Mapping[str, Any], payload_canonical: str) -> bool:
+    """True iff an exported envelope column disagrees with the *hashed* envelope.
+
+    ``entity_type``, ``entity_id``, ``actor`` and ``occurred_at`` are not bound by the event
+    hash directly. The DB writer (CR verification-crypto-engineer-1 §1) also stores them as
+    ``{"envelope": {...}, "data": ...}`` inside ``payload_canonical``, which *is* hashed. A
+    column that is present in ``columns`` and in the envelope must therefore agree with it;
+    otherwise the stored column was rewritten. Payloads without an envelope (other writers) and
+    columns absent from either side are not compared. Never raises.
+    """
+    try:
+        payload = json.loads(payload_canonical)
+    except (TypeError, ValueError):
+        return False  # a corrupt payload is reported by the hash check
+    env = payload.get("envelope") if isinstance(payload, dict) else None
+    if not isinstance(env, dict):
+        return False
+    for name in _ENVELOPE_FIELDS:
+        if name not in columns or name not in env:
+            continue
+        a, b = columns[name], env[name]
+        if name == "occurred_at":
+            same = _same_instant(a, b)
+        elif name == "entity_id":
+            same = _same_uuid(a, b)
+        else:
+            same = a == b
+        if not same:
+            return True
+    return False
+
+
+def first_envelope_mismatch(events: Sequence[AuditEventRecord]) -> int | None:
+    """``seq`` of the first record whose envelope columns disagree with its hashed envelope."""
+    for ev in events:
+        columns = {
+            "entity_type": ev.entity_type,
+            "entity_id": ev.entity_id,
+            "actor": ev.actor,
+            "occurred_at": ev.occurred_at,
+        }
+        if envelope_mismatch(columns, ev.payload_canonical):
+            return ev.seq
+    return None
+
+
+def chain_segment_error(
+    events: Sequence[AuditEventRecord],
+    envelope_bad_seq: int | None,
+    anchor_seq: object,
+    anchor_hash: object,
+    *,
+    not_found: str = "chain_anchor not found in the audit chain export",
+) -> str | None:
+    """Verify an exported chain segment and that it contains ``(anchor_seq, anchor_hash)``.
+
+    Returns ``None`` if everything holds, else one error naming the *first* bad ``seq``
+    (hash-chain failure or envelope mismatch, whichever comes first).
+    """
+    result = verify_chain(events, expected_start_prev=events[0].prev_hash)
+    if envelope_bad_seq is not None and (
+        result.valid or (result.first_invalid_seq or 0) > envelope_bad_seq
+    ):
+        return f"audit chain invalid at seq {envelope_bad_seq} (envelope_mismatch)"
+    if not result.valid:
+        return f"audit chain invalid at seq {result.first_invalid_seq} ({result.reason})"
+    if not any(ev.seq == anchor_seq and ev.event_hash == anchor_hash for ev in events):
+        return not_found
+    return None
+
+
+def _parse_events_checked(text: str) -> tuple[list[AuditEventRecord], int | None]:
+    """Parse a chain export; also return the first ``seq`` whose envelope columns mismatch."""
     raw = _strict_loads(text, "chain")
+    events = _parse_events_raw(raw)
+    bad: int | None = None
+    for item, ev in zip(raw, events, strict=True):
+        if envelope_mismatch(item, ev.payload_canonical):
+            bad = ev.seq
+            break
+    return events, bad
+
+
+def _parse_events(text: str) -> list[AuditEventRecord]:
+    return _parse_events_raw(_strict_loads(text, "chain"))
+
+
+def _parse_events_raw(raw: Any) -> list[AuditEventRecord]:
     if not isinstance(raw, list):
         raise _InputError("chain: expected a JSON array")
     events: list[AuditEventRecord] = []
@@ -481,8 +591,11 @@ def verify_evidence_offline(
     3. If ``leaves_json`` is given: recompute the Merkle root and compare it and the leaf count
        with the bundle (``merkle_ok``); otherwise ``merkle_ok`` is ``None``.
     4. If ``chain_json`` is given: verify the exported chain segment (starting from its first
-       event's ``prev_hash``) and require the bundle's ``chain_anchor`` (seq and event_hash) to
-       be one of its events (``chain_ok``); otherwise ``chain_ok`` is ``None``.
+       event's ``prev_hash``), require every exported envelope column (``entity_type``,
+       ``entity_id``, ``actor``, ``occurred_at``) to agree with the hashed envelope inside
+       ``payload_canonical`` (see :func:`envelope_mismatch`), and require the bundle's
+       ``chain_anchor`` (seq and event_hash) to be one of its events (``chain_ok``); otherwise
+       ``chain_ok`` is ``None``. A failure names the first bad ``seq``.
 
     ``valid`` is true only if the signature is good, there are no errors, and neither optional
     check failed.
@@ -541,20 +654,17 @@ def verify_evidence_offline(
         if chain_json is not None:
             chain_ok = False
             try:
-                events = _parse_events(chain_json)
+                events, envelope_bad = _parse_events_checked(chain_json)
                 if not events:
                     raise _InputError("chain: export is empty")
-                result = verify_chain(events, expected_start_prev=events[0].prev_hash)
                 anchor = bundle.get("chain_anchor")
-                if not result.valid:
-                    errors.append(
-                        f"audit chain invalid at seq {result.first_invalid_seq} ({result.reason})"
-                    )
-                elif not isinstance(anchor, dict) or not any(
-                    ev.seq == anchor.get("seq") and ev.event_hash == anchor.get("event_hash")
-                    for ev in events
-                ):
-                    errors.append("chain_anchor not found in the audit chain export")
+                if not isinstance(anchor, dict):
+                    anchor = {}
+                error = chain_segment_error(
+                    events, envelope_bad, anchor.get("seq"), anchor.get("event_hash")
+                )
+                if error is not None:
+                    errors.append(error)
                 else:
                     chain_ok = True
             except _InputError as exc:
