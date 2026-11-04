@@ -128,6 +128,9 @@ def erase(
     live: bool = False,
     yes: Annotated[bool, typer.Option("--yes", help="confirm LIVE erasure")] = False,
     actor: str = "cli-operator",
+    approver: Annotated[str, typer.Option(help="approver identity (four-eyes: != actor)")] = (
+        "cli-approver"
+    ),
 ) -> None:
     """Request -> discover -> plan -> dry run; with --live --yes: approve, execute, verify."""
     from lae.services import pipeline
@@ -162,7 +165,7 @@ def erase(
     if plan.is_blocked:
         typer.echo("plan is BLOCKED; resolve conflicts first", err=True)
         raise typer.Exit(3)
-    pipeline.approve(rt, pid, plan.plan_hash, actor)
+    pipeline.approve(rt, pid, plan.plan_hash, approver)  # executor is `actor` (four-eyes)
     res = pipeline.execute(rt, pid, ExecutionMode.LIVE, actor)
     v = svc.get_verification(rid)
     _echo(
