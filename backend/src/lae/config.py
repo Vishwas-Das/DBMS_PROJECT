@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Annotated
 
 from pydantic import Field, SecretStr, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from lae.errors import ConfigurationError
 
@@ -17,7 +18,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://lae_owner:lae_owner_dev@localhost:5433/lae"
     reader_url: str | None = None
     executor_url: str | None = None
-    target_schemas: list[str] = Field(default_factory=lambda: ["app"])
+    target_schemas: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["app"])
     hmac_key: SecretStr | None = None
     signing_key_path: Path | None = None
     api_token: str | None = None  # X-LAE-Token for mutating API calls (local prototype auth)
