@@ -66,12 +66,16 @@ class ArtifactKind(StrEnum):
     VIEW = "VIEW"
     DERIVED_TABLE = "DERIVED_TABLE"
     EMBEDDING_TABLE = "EMBEDDING_TABLE"
+    CACHE = "CACHE"  # key-addressable cache table (CR lead-1)
+    EXTERNAL = "EXTERNAL"  # outside PostgreSQL, not inspectable (CR lead-1)
 
 
 class RefreshStrategy(StrEnum):
     REFRESH_MATVIEW = "REFRESH_MATVIEW"
     RECOMPUTE_SQL = "RECOMPUTE_SQL"
     DELETE_BY_KEY = "DELETE_BY_KEY"
+    INVALIDATE_BY_KEY = "INVALIDATE_BY_KEY"  # CACHE
+    EXTERNAL_TASK = "EXTERNAL_TASK"  # EXTERNAL with a handler
     NONE = "NONE"
 
 
@@ -132,7 +136,11 @@ class PlanAction(StrEnum):
     DELETE_DERIVED_BY_KEY = "DELETE_DERIVED_BY_KEY"
     RECOMPUTE_TABLE = "RECOMPUTE_TABLE"
     REFRESH_MATVIEW = "REFRESH_MATVIEW"
+    INVALIDATE_CACHE = "INVALIDATE_CACHE"
+    RETAIN_ROWS = "RETAIN_ROWS"
+    SCHEDULE_EXTERNAL = "SCHEDULE_EXTERNAL"
     MANUAL_REVIEW = "MANUAL_REVIEW"
+    UNRESOLVED = "UNRESOLVED"
 
 
 class ConflictCode(StrEnum):
@@ -145,6 +153,7 @@ class ConflictCode(StrEnum):
     RETAINED_WITH_PII = "RETAINED_WITH_PII"
     NO_PRIMARY_KEY = "NO_PRIMARY_KEY"
     UNCONFIRMED_PII = "UNCONFIRMED_PII"
+    EXTERNAL_ARTIFACT = "EXTERNAL_ARTIFACT"
 
 
 class Severity(StrEnum):
@@ -212,3 +221,50 @@ class AuditEventType(StrEnum):
     EVIDENCE_ISSUED = "EVIDENCE_ISSUED"
     SUBJECT_DATA_PURGED = "SUBJECT_DATA_PURGED"
     CHAIN_HEAD_EXPORTED = "CHAIN_HEAD_EXPORTED"
+    CONFLICT_ACKNOWLEDGED = "CONFLICT_ACKNOWLEDGED"
+    DISCOVERY_COMPLETED = "DISCOVERY_COMPLETED"
+
+
+class VerificationOutcome(StrEnum):
+    """CR lead-1 §3. VERIFIED requires no failed check AND coverage == 1."""
+
+    VERIFIED = "VERIFIED"
+    PARTIAL = "PARTIAL"
+    FAILED = "FAILED"
+
+
+class ActionCategory(StrEnum):
+    """User-facing action vocabulary (CR lead-1 §1)."""
+
+    DELETE = "DELETE"
+    INVALIDATE = "INVALIDATE"
+    RECOMPUTE = "RECOMPUTE"
+    RETAIN = "RETAIN"
+    SCHEDULE = "SCHEDULE"
+    MANUAL_REVIEW = "MANUAL_REVIEW"
+    UNRESOLVED = "UNRESOLVED"
+
+
+_ACTION_CATEGORY: dict[PlanAction, ActionCategory] = {
+    PlanAction.DELETE_ROWS: ActionCategory.DELETE,
+    PlanAction.EXPECT_CASCADE: ActionCategory.DELETE,
+    PlanAction.DELETE_DERIVED_BY_KEY: ActionCategory.DELETE,
+    PlanAction.INVALIDATE_CACHE: ActionCategory.INVALIDATE,
+    PlanAction.NULLIFY_REFERENCE: ActionCategory.INVALIDATE,
+    PlanAction.REFRESH_MATVIEW: ActionCategory.RECOMPUTE,
+    PlanAction.RECOMPUTE_TABLE: ActionCategory.RECOMPUTE,
+    PlanAction.ANONYMIZE_ROWS: ActionCategory.RETAIN,
+    PlanAction.RETAIN_ROWS: ActionCategory.RETAIN,
+    PlanAction.SCHEDULE_EXTERNAL: ActionCategory.SCHEDULE,
+    PlanAction.MANUAL_REVIEW: ActionCategory.MANUAL_REVIEW,
+    PlanAction.UNRESOLVED: ActionCategory.UNRESOLVED,
+}
+
+UNVERIFIABLE_CATEGORIES = frozenset(
+    {ActionCategory.SCHEDULE, ActionCategory.MANUAL_REVIEW, ActionCategory.UNRESOLVED}
+)
+"""Items in these categories can never be verified inside the database."""
+
+
+def action_category(action: PlanAction) -> ActionCategory:
+    return _ACTION_CATEGORY[action]

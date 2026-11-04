@@ -11,7 +11,9 @@ Authoritative design docs (read before changing anything):
 - `docs/development_plan.md`: milestones, ownership matrix, acceptance tests
 - `docs/risks_and_limitations.md`: what is *not* guaranteed
 
-Current phase: **architecture approved? NO.** Do not implement application code until the user approves.
+Current phase: **architecture APPROVED (2026-11-04). Implementation in progress** (see `docs/implementation_checklist.md`). Contract extensions: `docs/change_requests/lead-1.md`.
+
+Docker Desktop is installed but `docker` may not be on PATH in agent shells. Use `"/c/Program Files/Docker/Docker/resources/bin/docker"` (bash) or add that folder to PATH.
 
 ## Stack
 Python 3.12 · FastAPI · SQLAlchemy 2.0 (sync) + psycopg 3 · Alembic · PostgreSQL 16 + pgvector + pgcrypto · SQLGlot (pinned) · NetworkX · cryptography (Ed25519) · Typer CLI · React + Vite + TypeScript · TanStack Query · @xyflow/react · pytest / Vitest · Docker Compose.

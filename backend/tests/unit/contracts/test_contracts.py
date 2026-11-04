@@ -147,3 +147,12 @@ def test_ports_are_runtime_checkable_protocols() -> None:
     for proto in (CatalogReader, TargetReader, TargetWriter, AuditSink):
         assert not isinstance(object(), proto)
     _ = datetime.now(UTC)
+
+
+def test_every_plan_action_has_a_category() -> None:
+    from lae.contracts.enums import ActionCategory, action_category
+
+    cats = {action_category(a) for a in PlanAction}
+    assert cats == set(ActionCategory)
+    assert action_category(PlanAction.REFRESH_MATVIEW) is ActionCategory.RECOMPUTE
+    assert action_category(PlanAction.ANONYMIZE_ROWS) is ActionCategory.RETAIN

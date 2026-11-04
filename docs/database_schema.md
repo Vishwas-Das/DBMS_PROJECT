@@ -651,3 +651,14 @@ class ErrorEnvelope(BaseModel):        error: ErrorBody
 ```
 
 Endpoint list and the exception → HTTP mapping: [module_contracts.md §9](module_contracts.md).
+
+---
+
+## 7. Amendments: CR lead-1 (applied 2026-11-04, authoritative over earlier sections)
+- `derived_artifact.kind` adds `'CACHE','EXTERNAL'`. `refresh_strategy` adds `'INVALIDATE_BY_KEY','EXTERNAL_TASK'`. New column `is_inspectable boolean NOT NULL DEFAULT true`, with `CHECK (kind <> 'EXTERNAL' OR is_inspectable = false)`.
+- `plan_item.action` adds `'INVALIDATE_CACHE','RETAIN_ROWS','SCHEDULE_EXTERNAL','UNRESOLVED'`. New column `category text NOT NULL`, CHECK `IN ('DELETE','INVALIDATE','RECOMPUTE','RETAIN','SCHEDULE','MANUAL_REVIEW','UNRESOLVED')`, plus `reason text NOT NULL` (an explainable, PII-free sentence).
+- `plan_conflict.code` adds `'EXTERNAL_ARTIFACT'`.
+- `verification_run` adds `outcome text NULL CHECK (outcome IN ('VERIFIED','PARTIAL','FAILED'))`, `required_artifacts integer`, `verified_artifacts integer`, `CHECK (verified_artifacts <= required_artifacts)`.
+- `audit_event.event_type` adds `'CONFLICT_ACKNOWLEDGED','DISCOVERY_COMPLETED'`. `payload_canonical` is the envelope `{"envelope":{entity_type,entity_id,actor,occurred_at},"data":payload}` (CR verification-crypto-engineer-1 §1).
+- Demo schema adds `app.document` (FK customer CASCADE, `title`, `body text` containing the name/email) and `app.customer_profile_cache` (no FK. PK `customer_id`. `payload jsonb`. Registered CACHE artifact). `document_embedding.source_document_id → app.document.id` (registered mapping, replaces `source_ticket_id`).
+- Roles in the prototype: `lae_owner` (migrations + executor) and `lae_reader` (read-only discovery/verification). A separate `lae_executor` role is deferred because PostgreSQL 16 requires ownership for `REFRESH MATERIALIZED VIEW`. This is documented as a limitation.
