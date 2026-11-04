@@ -30,10 +30,10 @@ Rule: an item is ticked only when an automated test has passed against the real 
 | 9 Independent verification | Verification Eng | [x] 8377766, e7a59c9 | 24 real-PG tests. Residual scan catches the hidden copies FK erasure leaves |
 | 10 DB-backed audit + evidence | Verification Eng + DB Eng + Lead | [x] | offline verification with DB access blocked. Tamper detected at exact seq (hash + envelope) |
 | 11 FastAPI integration | Lead | [x] 7967d07 | 23 endpoints. 9 e2e API tests on real PG with direct-SQL checks |
-| 12 React dashboard | Frontend Eng | [~] round 2 (live backend) running | round 1: 59 tests |
-| 13 E2E + security tests | QA + Lead | [~] QA running. Independent security review running | |
-| 14 Benchmarks | QA | [~] running | |
-| 15 Documentation | Docs agent + Lead | [~] running | |
+| 12 React dashboard | Frontend Eng | [x] 6cf6abb | 73 tests, live smoke, 13 screenshots |
+| 13 E2E + security tests | QA + Lead | [x] 57de8e8, 09470ee | 64 e2e + 18 services security tests. Review findings fixed |
+| 14 Benchmarks | QA | [x] 09470ee | 3 methods × 3 scales (100/1k/10k) + feedback experiment |
+| 15 Documentation | Docs agent + Lead | [x] | all brief §16 documents. Acceptance: docs/development_progress.md |
 
 ## Blocker log
 | Date | Blocker | Resolution |
