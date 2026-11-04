@@ -192,3 +192,62 @@ def test_table_cycle_detection_matches_networkx(case: tuple[int, list[tuple[int,
         pos = {t: i for i, t in enumerate(order)}
         for u, v in pairs:
             assert pos[refs[u]] < pos[refs[v]]
+
+
+@settings(max_examples=100, deadline=None)
+@given(
+    st.integers(min_value=1, max_value=8).flatmap(
+        lambda n: st.tuples(
+            st.just(n),
+            st.lists(st.tuples(st.integers(0, n - 1), st.integers(0, n - 1)), max_size=20),
+            st.integers(0, n - 1),
+        )
+    ),
+    st.randoms(use_true_random=False),
+)
+def test_bfs_dfs_traversal_properties(
+    case: tuple[int, list[tuple[int, int]], int], rnd: Any
+) -> None:
+    n, pairs, start = case
+    cat = _catalog(n)
+    refs = sorted(cat.tables)
+    edges = [
+        RelationshipEdge(
+            edge_id=UUID(int=i + 1),
+            level=LineageLevel.TABLE,
+            origin=EdgeOrigin.DECLARED_FK,
+            source=refs[u],
+            target=refs[v],
+            source_columns=(),
+            target_columns=(),
+            transform=Transform.FOREIGN_KEY,
+            traceability=Traceability.KEY_PRESERVING,
+            status=EdgeStatus.CONFIRMED,
+        )
+        for i, (u, v) in enumerate(pairs)
+    ]
+    g = build_lineage_graph(cat, edges)
+    src = refs[start]
+    bfs = g.traverse(src, "bfs")
+    dfs = g.traverse(src, "dfs")
+    reach = g.reachable_from(src) - {src}
+    # same set, no duplicates, start excluded
+    assert set(bfs) == set(dfs) == reach
+    assert len(bfs) == len(dfs) == len(reach)
+    ref = nx.DiGraph()
+    ref.add_nodes_from(refs)
+    ref.add_edges_from((refs[u], refs[v]) for u, v in pairs)
+    # BFS visits in non-decreasing shortest-path distance
+    dist = nx.single_source_shortest_path_length(ref, src)
+    assert [dist[t] for t in bfs] == sorted(dist[t] for t in bfs)
+    # DFS preorder: every visited table has a predecessor visited before it (or the start)
+    seen = {src}
+    for t in dfs:
+        assert any(p in seen for p in ref.predecessors(t))
+        seen.add(t)
+    # deterministic regardless of edge insertion order
+    shuffled = list(edges)
+    rnd.shuffle(shuffled)
+    h = build_lineage_graph(cat, shuffled)
+    assert h.traverse(src, "bfs") == bfs
+    assert h.traverse(src, "dfs") == dfs

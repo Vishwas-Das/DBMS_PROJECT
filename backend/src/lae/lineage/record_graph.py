@@ -116,6 +116,25 @@ class RecordGraph:
             self.graph.add_edge(parent, child, edge_ids={edge_id})
         return is_new
 
+    def set_role(self, key: RecordKey, role: RecordRole) -> None:
+        """Re-classify an existing record after traversal, e.g. OWNED -> SHARED.
+
+        Discovery only knows that a row is SHARED (it also references another subject's root)
+        once the BFS has finished, so this is an explicit override. It ignores the precedence
+        used by `add_dependency`, and depth and via_edge_ids are kept. Raises
+        GraphIntegrityError with code="UNKNOWN_RECORD" for a missing key, and with
+        code="INVALID_ROLE" when asked to set SUBJECT_ROOT (use `add_root`) or to re-classify
+        the subject's own root row.
+        """
+        old = self.attrs(key)  # raises UNKNOWN_RECORD
+        if role is RecordRole.SUBJECT_ROOT or old.role is RecordRole.SUBJECT_ROOT:
+            raise GraphIntegrityError(
+                "SUBJECT_ROOT records cannot be assigned or re-classified with set_role",
+                code="INVALID_ROLE",
+                details={"table": key.table.qualified(), "role": role.value},
+            )
+        self.graph.nodes[key]["attrs"] = RecordAttrs(role, old.depth, old.via_edge_ids)
+
     # ------------------------------------------------------------------ queries
 
     def __len__(self) -> int:

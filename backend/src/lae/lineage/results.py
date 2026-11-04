@@ -17,8 +17,10 @@ from lae.lineage.record_graph import RecordGraph
 __all__ = ["RecordDiscoveryResult"]
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, eq=False)
 class RecordDiscoveryResult:
+    """Identity equality (CR graph-engineer-1 item 8): it holds a mutable RecordGraph."""
+
     record_graph: RecordGraph
     affected_artifacts: Mapping[TableRef, Traceability]
     warnings: tuple[str, ...] = ()

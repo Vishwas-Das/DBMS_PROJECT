@@ -76,3 +76,9 @@ as used for `CatalogSnapshot`.
 5: deferred to the derived-artifacts milestone (`artifacts` argument added then).
 6 (self-reference): accepted. PostgreSQL deletes a row that references itself in one DELETE, even under RESTRICT.
 8: accepted. Graph Engineer to switch `RecordDiscoveryResult` to `eq=False` in the next lineage task.
+
+## Lead decision on follow-up (2026-11-04)
+- `GraphEdgeOut.evidence` already exists (lae/api/schemas.py). No change needed.
+- `add_table` keeps the original fingerprint. ACCEPTED: the fingerprint describes the *scanned catalog*, and incremental additions are an in-memory analysis aid only. Persisted snapshots always come from `read_catalog`.
+- `set_role` as an explicit override: ACCEPTED (discovery uses it for SHARED after BFS).
+- The facade module name `lae.lineage.api` and `discover_dependents` returning edges: ACCEPTED.

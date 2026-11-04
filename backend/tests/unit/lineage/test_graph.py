@@ -306,6 +306,11 @@ def test_to_node_link_table(g: LineageGraph, shop: Any) -> None:
         "target_columns": ["order_id"],
         "on_delete_action": "c",
         "confidence": 1.0,
+        "evidence": {
+            "artifact_id": None,
+            "constraint_name": "fk_ol_order",
+            "origin": "DECLARED_FK",
+        },
     }
     statuses = {x["status"] for x in out["edges"]}
     assert "SUGGESTED" in statuses  # UI needs suggested edges to review them

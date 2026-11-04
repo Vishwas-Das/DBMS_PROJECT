@@ -6,8 +6,10 @@ records (architecture.md §1.1). Record-level dependencies live in `lae.lineage.
 
 from __future__ import annotations
 
+from bisect import insort
 from collections.abc import Iterable, Mapping
-from typing import Any
+from enum import Enum
+from typing import Any, Literal
 from uuid import UUID
 
 import networkx as nx
@@ -24,17 +26,23 @@ from lae.contracts.types import (
 from lae.errors import GraphIntegrityError
 
 __all__ = [
+    "ALL_STATUSES",
     "CONFIRMED_ONLY",
     "LineageGraph",
+    "TraversalOrder",
     "build_lineage_graph",
     "column_node_id",
+    "edge_evidence",
     "table_node_id",
 ]
 
 CONFIRMED_ONLY: frozenset[EdgeStatus] = frozenset({EdgeStatus.CONFIRMED})
-_ALL_STATUSES: frozenset[EdgeStatus] = frozenset(EdgeStatus)
+ALL_STATUSES: frozenset[EdgeStatus] = frozenset(EdgeStatus)
+_ALL_STATUSES = ALL_STATUSES
 _CONTAINS = "contains"
 _ARTIFACT_KINDS = frozenset({TableKind.VIEW, TableKind.MATERIALIZED_VIEW})
+
+TraversalOrder = Literal["bfs", "dfs"]
 
 
 def table_node_id(table: TableRef) -> str:
@@ -43,6 +51,10 @@ def table_node_id(table: TableRef) -> str:
 
 def column_node_id(column: ColumnRef) -> str:
     return f"c:{column.qualified()}"
+
+
+def _id_key(edge: RelationshipEdge) -> str:
+    return str(edge.edge_id)
 
 
 def _edge_sort_key(edge: RelationshipEdge, by: TableRef) -> tuple[Any, ...]:
@@ -61,6 +73,9 @@ class LineageGraph:
     nodes; COLUMN-level edges link column nodes (one nx edge per column pair). Every lineage
     edge carries the full `RelationshipEdge` in its ``edge`` attribute. Table → column
     containment edges carry ``contains=True`` and no ``edge``.
+
+    Build instances with `build_lineage_graph`. `add_table`, `add_edge` and `mark_artifact`
+    mutate an existing graph incrementally with the same integrity validation.
     """
 
     __slots__ = ("_by_id", "_column_edges", "_table_edges", "catalog", "graph")
@@ -73,14 +88,123 @@ class LineageGraph:
     ) -> None:
         self.catalog = catalog
         self.graph = graph
-        ordered = sorted(edges, key=lambda e: str(e.edge_id))
+        ordered = sorted(edges, key=_id_key)
         self._by_id: dict[UUID, RelationshipEdge] = {e.edge_id: e for e in ordered}
-        self._table_edges: tuple[RelationshipEdge, ...] = tuple(
+        # Both lists are kept sorted by str(edge_id) (see `add_edge`).
+        self._table_edges: list[RelationshipEdge] = [
             e for e in ordered if e.level is LineageLevel.TABLE
-        )
-        self._column_edges: tuple[RelationshipEdge, ...] = tuple(
+        ]
+        self._column_edges: list[RelationshipEdge] = [
             e for e in ordered if e.level is LineageLevel.COLUMN
+        ]
+
+    # ------------------------------------------------------------------ mutation
+
+    def _insert_table_nodes(
+        self, info: TableInfo, pii: Mapping[ColumnRef, PiiColumn], is_artifact: bool
+    ) -> None:
+        ref = info.ref
+        flag = is_artifact or info.kind in _ARTIFACT_KINDS
+        tnode = table_node_id(ref)
+        self.graph.add_node(
+            tnode,
+            kind="table",
+            table=ref,
+            table_kind=info.kind,
+            pk=info.primary_key,
+            is_artifact=flag,
         )
+        for col in info.columns:
+            cref = ColumnRef(ref, col.name)
+            pc = pii.get(cref)
+            cnode = column_node_id(cref)
+            self.graph.add_node(
+                cnode,
+                kind="column",
+                table=ref,
+                column=col.name,
+                table_kind=info.kind,
+                data_type=col.data_type,
+                is_nullable=col.is_nullable,
+                pii_category=pc.category if pc is not None else None,
+                is_artifact=flag,
+            )
+            self.graph.add_edge(tnode, cnode, key=_CONTAINS, contains=True)
+
+    def add_table(
+        self,
+        info: TableInfo,
+        pii: Mapping[ColumnRef, PiiColumn] | None = None,
+        *,
+        is_artifact: bool = False,
+    ) -> None:
+        """Add a table (and its column nodes) that is not yet in the graph.
+
+        `catalog` is replaced by a new snapshot that also contains `info`. Its fingerprint
+        is kept, because it still identifies the snapshot the graph was built from. Raises
+        GraphIntegrityError: code="DUPLICATE_TABLE" if the table exists, or the default code
+        if a `pii` entry names a column that is not in `info`.
+        """
+        if self.catalog.has_table(info.ref):
+            raise GraphIntegrityError(
+                "table is already in the graph",
+                code="DUPLICATE_TABLE",
+                details={"table": info.ref.qualified()},
+            )
+        pii = pii or {}
+        for col_ref in pii:
+            if col_ref.table != info.ref or not info.has_column(col_ref.column):
+                raise _integrity(
+                    f"PII classification references unknown column {col_ref.qualified()}",
+                    table=col_ref.table.qualified(),
+                    column=col_ref.column,
+                )
+        self.catalog = CatalogSnapshot(
+            tables={**self.catalog.tables, info.ref: info},
+            schemas=tuple(sorted({*self.catalog.schemas, info.ref.schema})),
+            fingerprint=self.catalog.fingerprint,
+        )
+        self._insert_table_nodes(info, pii, is_artifact)
+
+    def mark_artifact(self, table: TableRef) -> None:
+        """Flag `table` and its column nodes as a derived artifact (idempotent)."""
+        info = self._check_table(table)
+        self.graph.nodes[table_node_id(table)]["is_artifact"] = True
+        for col in info.columns:
+            self.graph.nodes[column_node_id(ColumnRef(table, col.name))]["is_artifact"] = True
+
+    def add_edge(self, edge: RelationshipEdge) -> None:
+        """Add one lineage edge after validating it against the catalog.
+
+        Raises GraphIntegrityError for a duplicate edge_id (code="DUPLICATE_EDGE") or for an
+        unknown table/column. An edge with an `artifact_id` flags its target as an artifact.
+        """
+        if edge.edge_id in self._by_id:
+            raise GraphIntegrityError(
+                "duplicate edge_id", code="DUPLICATE_EDGE", details={"edge_id": str(edge.edge_id)}
+            )
+        _validate_edge(self.catalog, edge)
+        if edge.level is LineageLevel.TABLE:
+            self.graph.add_edge(
+                table_node_id(edge.source),
+                table_node_id(edge.target),
+                key=str(edge.edge_id),
+                edge=edge,
+            )
+            insort(self._table_edges, edge, key=_id_key)
+        else:
+            pairs = zip(edge.source_columns, edge.target_columns, strict=True)
+            for i, (sc, tc) in enumerate(pairs):
+                self.graph.add_edge(
+                    column_node_id(ColumnRef(edge.source, sc)),
+                    column_node_id(ColumnRef(edge.target, tc)),
+                    key=f"{edge.edge_id}:{i}",
+                    edge=edge,
+                )
+            insort(self._column_edges, edge, key=_id_key)
+        self._by_id[edge.edge_id] = edge
+        if edge.artifact_id is not None:
+            self.mark_artifact(edge.target)
 
     # ------------------------------------------------------------------ basic accessors
 
@@ -94,7 +218,7 @@ class LineageGraph:
 
     def edges(self, statuses: frozenset[EdgeStatus] = _ALL_STATUSES) -> list[RelationshipEdge]:
         """All lineage edges with a status in `statuses`, sorted by edge_id."""
-        return [e for e in self._by_id.values() if e.status in statuses]
+        return sorted((e for e in self._by_id.values() if e.status in statuses), key=_id_key)
 
     def _check_table(self, table: TableRef) -> TableInfo:
         return self.catalog.table(table)  # raises UnknownTableError
@@ -194,6 +318,32 @@ class LineageGraph:
         self._check_table(table)
         return set(nx.descendants(self._table_digraph(statuses), table))
 
+    def traverse(
+        self,
+        table: TableRef,
+        order: TraversalOrder = "bfs",
+        statuses: frozenset[EdgeStatus] = CONFIRMED_ONLY,
+    ) -> list[TableRef]:
+        """Tables downstream of `table` (excluding it), in BFS or DFS-preorder visiting order.
+
+        Neighbours are visited in TableRef order, so the result is deterministic. The set of
+        returned tables always equals `reachable_from(table, statuses)`. Raises
+        GraphIntegrityError(code="INVALID_ORDER") for any other `order`.
+        """
+        self._check_table(table)
+        g = self._table_digraph(statuses)
+        if order == "bfs":
+            visited = list(nx.bfs_tree(g, table, sort_neighbors=sorted))
+        elif order == "dfs":
+            visited = list(nx.dfs_preorder_nodes(g, table, sort_neighbors=sorted))
+        else:
+            raise GraphIntegrityError(
+                "traversal order must be 'bfs' or 'dfs'",
+                code="INVALID_ORDER",
+                details={"order": str(order)},
+            )
+        return [n for n in visited if n != table]
+
     def table_cycles(
         self, statuses: frozenset[EdgeStatus] = CONFIRMED_ONLY
     ) -> list[list[TableRef]]:
@@ -250,6 +400,7 @@ class LineageGraph:
         TABLE: table nodes + TABLE-level edges. COLUMN: table and column nodes + COLUMN-level
         edges, one entry per column pair. All statuses are included by default so the UI can
         show SUGGESTED edges for review. Nodes are sorted by id; edges by (id, source, target).
+        Every edge also carries ``evidence`` (see `edge_evidence`), which explains why it exists.
         """
         if level is LineageLevel.TABLE:
             node_ids = [table_node_id(t) for t in self.catalog.tables]
@@ -316,7 +467,41 @@ def _edge_out(e: RelationshipEdge, source: str, target: str) -> dict[str, Any]:
         "target_columns": list(e.target_columns),
         "on_delete_action": e.on_delete.value if e.on_delete is not None else None,
         "confidence": e.confidence,
+        "evidence": edge_evidence(e),
     }
+
+
+def _json_safe(value: Any) -> Any:
+    """Deterministic JSON-able copy: sorted mapping keys, sequences as lists, sets sorted."""
+    if isinstance(value, Enum):
+        return _json_safe(value.value)
+    if value is None or isinstance(value, (str, bool, int, float)):
+        return value
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, (TableRef, ColumnRef)):
+        return value.qualified()
+    if isinstance(value, Mapping):
+        return {str(k): _json_safe(value[k]) for k in sorted(value, key=str)}
+    if isinstance(value, (set, frozenset)):
+        return sorted((_json_safe(v) for v in value), key=repr)
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    return str(value)
+
+
+def edge_evidence(e: RelationshipEdge) -> dict[str, Any]:
+    """Why the edge exists: `RelationshipEdge.details` plus origin, constraint and artifact.
+
+    The structured fields ``origin``, ``constraint_name`` and ``artifact_id`` are authoritative
+    and override same-named keys in `details`. Keys are sorted and every value is JSON-able
+    (UUIDs and table/column refs become strings, tuples and sets become lists).
+    """
+    out: dict[str, Any] = _json_safe(e.details)
+    out["origin"] = e.origin.value
+    out["constraint_name"] = e.constraint_name
+    out["artifact_id"] = str(e.artifact_id) if e.artifact_id is not None else None
+    return dict(sorted(out.items()))
 
 
 # ---------------------------------------------------------------------- construction
@@ -348,26 +533,7 @@ def _validate_edge(catalog: CatalogSnapshot, e: RelationshipEdge) -> None:
                 )
 
 
-def build_lineage_graph(
-    catalog: CatalogSnapshot,
-    edges: Iterable[RelationshipEdge],
-    pii: Mapping[ColumnRef, PiiColumn] | None = None,
-) -> LineageGraph:
-    """Build a `LineageGraph` from a catalog snapshot and lineage edges.
-
-    Raises GraphIntegrityError if an edge (or PII entry) references a table/column not in
-    the catalog, or if two edges share an edge_id.
-    """
-    pii = pii or {}
-    edge_list = list(edges)
-    seen: set[UUID] = set()
-    for e in edge_list:
-        if e.edge_id in seen:
-            raise GraphIntegrityError(
-                "duplicate edge_id", code="DUPLICATE_EDGE", details={"edge_id": str(e.edge_id)}
-            )
-        seen.add(e.edge_id)
-        _validate_edge(catalog, e)
+def _validate_pii(catalog: CatalogSnapshot, pii: Mapping[ColumnRef, PiiColumn]) -> None:
     for col_ref in pii:
         if not catalog.has_table(col_ref.table) or not catalog.tables[col_ref.table].has_column(
             col_ref.column
@@ -378,45 +544,34 @@ def build_lineage_graph(
                 column=col_ref.column,
             )
 
-    artifact_tables = {e.target for e in edge_list if e.artifact_id is not None}
-    g = nx.MultiDiGraph()
-    for ref in sorted(catalog.tables):
-        info = catalog.tables[ref]
-        is_artifact = info.kind in _ARTIFACT_KINDS or ref in artifact_tables
-        tnode = table_node_id(ref)
-        g.add_node(
-            tnode,
-            kind="table",
-            table=ref,
-            table_kind=info.kind,
-            pk=info.primary_key,
-            is_artifact=is_artifact,
-        )
-        for col in info.columns:
-            cref = ColumnRef(ref, col.name)
-            pc = pii.get(cref)
-            cnode = column_node_id(cref)
-            g.add_node(
-                cnode,
-                kind="column",
-                table=ref,
-                column=col.name,
-                table_kind=info.kind,
-                data_type=col.data_type,
-                is_nullable=col.is_nullable,
-                pii_category=pc.category if pc is not None else None,
-                is_artifact=is_artifact,
+
+def build_lineage_graph(
+    catalog: CatalogSnapshot,
+    edges: Iterable[RelationshipEdge],
+    pii: Mapping[ColumnRef, PiiColumn] | None = None,
+    artifacts: Iterable[TableRef] = (),
+) -> LineageGraph:
+    """Build a `LineageGraph` from a catalog snapshot and lineage edges.
+
+    A table is flagged ``is_artifact`` if it is a VIEW / MATERIALIZED_VIEW, the target of an
+    edge with an `artifact_id`, or listed in `artifacts`. The last case covers registered
+    derived tables, embedding tables and caches that no edge reaches yet (CR graph-engineer-1
+    item 5).
+
+    Raises GraphIntegrityError if an edge, PII entry or artifact references a table/column not
+    in the catalog, or if two edges share an edge_id.
+    """
+    pii = pii or {}
+    _validate_pii(catalog, pii)
+    artifact_set = set(artifacts)
+    for ref in sorted(artifact_set):
+        if not catalog.has_table(ref):
+            raise _integrity(
+                f"artifact references unknown table {ref.qualified()}", table=ref.qualified()
             )
-            g.add_edge(tnode, cnode, key=_CONTAINS, contains=True)
-    for e in sorted(edge_list, key=lambda x: str(x.edge_id)):
-        if e.level is LineageLevel.TABLE:
-            g.add_edge(table_node_id(e.source), table_node_id(e.target), key=str(e.edge_id), edge=e)
-        else:
-            for i, (sc, tc) in enumerate(zip(e.source_columns, e.target_columns, strict=True)):
-                g.add_edge(
-                    column_node_id(ColumnRef(e.source, sc)),
-                    column_node_id(ColumnRef(e.target, tc)),
-                    key=f"{e.edge_id}:{i}",
-                    edge=e,
-                )
-    return LineageGraph(catalog, g, edge_list)
+    lg = LineageGraph(catalog, nx.MultiDiGraph(), ())
+    for ref in sorted(catalog.tables):
+        lg._insert_table_nodes(catalog.tables[ref], pii, ref in artifact_set)
+    for e in sorted(edges, key=_id_key):
+        lg.add_edge(e)
+    return lg
