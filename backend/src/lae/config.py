@@ -43,6 +43,16 @@ class Settings(BaseSettings):
             raise ValueError("the engine schema 'lae' can never be an erasure target")
         return v
 
+    @field_validator(
+        "api_token", "hmac_key", "admin_url", "reader_url", "executor_url", mode="before"
+    )
+    @classmethod
+    def _blank_is_unset(cls, v: object) -> object:
+        """An empty value in .env (e.g. `LAE_API_TOKEN=`) means "not set", not an invalid value."""
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
+
     @field_validator("api_token")
     @classmethod
     def _token_strength(cls, v: SecretStr | None) -> SecretStr | None:

@@ -78,8 +78,28 @@ if (-not (Test-Path $EnvFile)) {
     # UTF-8 without BOM so pydantic-settings / docker compose read it cleanly
     [System.IO.File]::WriteAllLines($EnvFile, [string[]]$out, (New-Object System.Text.UTF8Encoding($false)))
 } else {
-    Step ".env exists (left unchanged)"
+    # fill secrets that are present but EMPTY (e.g. "LAE_API_TOKEN="); never overwrite real values
+    $lines = Get-Content $EnvFile
+    $changed = $false
+    $out = foreach ($l in $lines) {
+        if ($l -match '^LAE_HMAC_KEY=\s*$') { $changed = $true; "LAE_HMAC_KEY=$(New-Secret)" }
+        elseif ($l -match '^LAE_API_TOKEN=\s*$') { $changed = $true; "LAE_API_TOKEN=$(New-Secret)" }
+        else { $l }
+    }
+    if ($changed) {
+        Step ".env exists; filled EMPTY secrets with random values (not printed)"
+        [System.IO.File]::WriteAllLines($EnvFile, [string[]]$out, (New-Object System.Text.UTF8Encoding($false)))
+    } else {
+        Step ".env exists (left unchanged)"
+    }
 }
+function Get-EnvValue([string]$Name) {
+    $line = Get-Content $EnvFile | Where-Object { $_ -match "^$Name=" } | Select-Object -First 1
+    if ($line) { return $line.Substring($Name.Length + 1) } else { return "" }
+}
+# migrations + seeding need the OWNER role; the app itself runs as the restricted lae_app role
+$AdminUrl = if ($DatabaseUrl) { $DatabaseUrl } else { Get-EnvValue "LAE_ADMIN_URL" }
+if (-not $AdminUrl) { $AdminUrl = Get-EnvValue "LAE_DATABASE_URL" }
 
 # ---------------------------------------------------------------- 4. database container
 if (-not $SkipDocker) {
@@ -102,21 +122,13 @@ if (-not $SkipDocker) {
 Step "creating test databases (idempotent)"
 Invoke-Checked $Py @("scripts\create_test_dbs.py")
 
-$alembicArgs = @("-m", "alembic", "-c", "backend\alembic.ini")
-if ($DatabaseUrl) { $alembicArgs += @("-x", "url=$DatabaseUrl") }
-Step "alembic upgrade head"
-Invoke-Checked $Py ($alembicArgs + @("upgrade", "head"))
+Step "alembic upgrade head (admin role)"
+Invoke-Checked $Py @("-m", "alembic", "-c", "backend\alembic.ini", "-x", "url=$AdminUrl", "upgrade", "head")
 
 if (-not $SkipSeed) {
-    Step "seeding synthetic dataset (scale=$Scale seed=$Seed)"
-    $seedArgs = @("-m", "db.fixtures.generator", "--scale", $Scale, "--seed", "$Seed")
-    if ($DatabaseUrl) { $seedArgs += @("--url", $DatabaseUrl) }
-    else {
-        # generator reads LAE_DATABASE_URL; take it from .env without echoing other values
-        $dbLine = Get-Content $EnvFile | Where-Object { $_ -match '^LAE_DATABASE_URL=' } | Select-Object -First 1
-        if ($dbLine) { $seedArgs += @("--url", $dbLine.Substring("LAE_DATABASE_URL=".Length)) }
-    }
-    Invoke-Checked $Py $seedArgs
+    Step "seeding synthetic dataset (scale=$Scale seed=$Seed) + lae_app grants"
+    # `lae db seed` runs the generator as the admin role, then SELECT lae.grant_app_role()
+    Invoke-Checked (Join-Path $Repo ".venv\Scripts\lae.exe") @("db", "seed", "--scale", $Scale, "--seed", "$Seed", "--url", $AdminUrl)
 }
 
 # ---------------------------------------------------------------- 8. signing key

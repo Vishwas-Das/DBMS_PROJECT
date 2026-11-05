@@ -28,7 +28,9 @@ def _database_url() -> str:
     if not url:
         from lae.config import Settings
 
-        url = Settings().database_url
+        s = Settings()
+        # migrations need the owner role; the app role (lae_app) cannot run DDL
+        url = s.admin_url or s.database_url
     if url.startswith("postgresql://"):
         url = "postgresql+psycopg://" + url[len("postgresql://") :]
     return url

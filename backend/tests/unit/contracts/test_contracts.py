@@ -156,3 +156,10 @@ def test_every_plan_action_has_a_category() -> None:
     assert cats == set(ActionCategory)
     assert action_category(PlanAction.REFRESH_MATVIEW) is ActionCategory.RECOMPUTE
     assert action_category(PlanAction.ANONYMIZE_ROWS) is ActionCategory.RETAIN
+
+
+def test_blank_env_values_mean_unset() -> None:
+    s = Settings(_env_file=None, api_token="", hmac_key="  ", admin_url="")  # type: ignore[arg-type,call-arg]
+    assert s.api_token is None and s.hmac_key is None and s.admin_url is None
+    with pytest.raises(ConfigurationError):
+        s.hmac_key_bytes()
