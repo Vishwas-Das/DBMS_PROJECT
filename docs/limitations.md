@@ -37,6 +37,7 @@ This page lists what LAE does **not** do, could not verify, or does only partly.
 23. API `event_id` is derived from the event hash, not the stored `event_id` column.
 
 23a. **Re-verification does not re-issue evidence.** Evidence is issued (and raw keys purged) once, after execution. A later re-verification that becomes VERIFIED neither replaces the bundle nor purges the keys.
+23aa. An unexpected (non-LAE) error during verification can leave the verification run in status RUNNING.
 23b. Anchors are written but no CLI or API command checks them (`verify_anchor` is only a library function). The UI's `signature_valid` trusts the public key stored in the database; use `lae verify-evidence` with a key you trust.
 
 ## 6. Security and operations

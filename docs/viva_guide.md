@@ -214,7 +214,7 @@ ACID mapping:
 | **Offline verification** | `audit/evidence.py::verify_evidence_offline`, CLI `lae verify-evidence` | Checks the signature, the Merkle root and the chain with **no database and no network** |
 | **HKDF** | `services/runtime.py::derive_subkey` | Derives separate keys per purpose from one master key, so the audit key never goes to the database |
 
-**Must-say honesty line:** "A valid signature proves the evidence is **authentic and unchanged**. It does **not** prove every copy is gone. That's why the outcome (VERIFIED / PARTIAL / FAILED) is inside the signed bundle."
+**Must-say honesty line:** "A valid signature proves the evidence is **authentic and unchanged**. It does **not** prove every copy is gone. The signed bundle holds the check results and a PASSED / FAILED status, but **not** the VERIFIED / PARTIAL / FAILED outcome: a PARTIAL erasure is signed as PASSED. The outcome is in the API and in the audit log. That is a known limitation of the v1 format."
 
 ---
 
