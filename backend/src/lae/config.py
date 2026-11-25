@@ -15,7 +15,7 @@ from lae.errors import ConfigurationError
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="LAE_", env_file=".env", extra="ignore")
 
-    database_url: str = "postgresql+psycopg://lae_owner:lae_owner_dev@127.0.0.1:5433/lae"
+    database_url: str = "postgresql+psycopg://lae_app:lae_app_dev@127.0.0.1:5433/lae"
     admin_url: str | None = None  # migrations + seeding (superuser); the app never uses it
     reader_url: str | None = None
     executor_url: str | None = None

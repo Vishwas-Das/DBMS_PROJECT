@@ -34,7 +34,7 @@ function Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
 function Invoke-Checked {
     param([string]$Exe, [string[]]$Arguments)
     & $Exe @Arguments
-    if ($LASTEXITCODE -ne 0) { throw "command failed ($LASTEXITCODE): $Exe $($Arguments -join ' ')" }
+    if ($LASTEXITCODE -ne 0) { throw "command failed ($LASTEXITCODE): $Exe $($Arguments[0..1] -join ' ') ..." }
 }
 function Find-Docker {
     $cmd = Get-Command docker -ErrorAction SilentlyContinue
@@ -53,7 +53,7 @@ if (-not (Test-Path $Py)) {
 if (-not $SkipInstall) {
     Step "pip install -e backend[dev]"
     Invoke-Checked $Py @("-m", "pip", "install", "--upgrade", "pip")
-    Invoke-Checked $Py @("-m", "pip", "install", "-e", ".\backend[dev]")
+    Invoke-Checked $Py @("-m", "pip", "install", "-e", ".\backend[dev]", "-c", ".\backend\constraints.txt")
 }
 
 # ---------------------------------------------------------------- 2. frontend
@@ -128,14 +128,16 @@ Invoke-Checked $Py @("-m", "alembic", "-c", "backend\alembic.ini", "-x", "url=$A
 if (-not $SkipSeed) {
     Step "seeding synthetic dataset (scale=$Scale seed=$Seed) + lae_app grants"
     # `lae db seed` runs the generator as the admin role, then SELECT lae.grant_app_role()
-    Invoke-Checked (Join-Path $Repo ".venv\Scripts\lae.exe") @("db", "seed", "--scale", $Scale, "--seed", "$Seed", "--url", $AdminUrl)
+    & $Py -m lae.cli db seed --scale $Scale --seed $Seed --url $AdminUrl
+    if ($LASTEXITCODE -eq 4) { Write-Host "    existing erasure requests: data left unchanged" }
+    elseif ($LASTEXITCODE -ne 0) { throw "seeding failed ($LASTEXITCODE)" }
 }
 
 # ---------------------------------------------------------------- 8. signing key
 $Key = Join-Path $Repo "secrets\signing_key.pem"
 if (-not (Test-Path $Key)) {
     Step "generating Ed25519 signing key"
-    Invoke-Checked (Join-Path $Repo ".venv\Scripts\lae.exe") @("keys", "generate", "--out", $Key)
+    Invoke-Checked $Py @("-m", "lae.cli", "keys", "generate", "--out", $Key)
 } else {
     Step "signing key exists (left unchanged)"
 }

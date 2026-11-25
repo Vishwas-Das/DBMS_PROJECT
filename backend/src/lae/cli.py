@@ -64,14 +64,29 @@ def db_seed(
     seed: int = 42,
     url: Annotated[str | None, typer.Option()] = None,
     out: Path = Path("db/fixtures/out/ground_truth.json"),
+    yes: Annotated[bool, typer.Option("--yes", help="re-seed although requests exist")] = False,
 ) -> None:
-    """(Re)create the synthetic `app` schema + lae configuration. Synthetic data only."""
+    """(Re)create the synthetic `app` schema + lae configuration. Synthetic data only.
+
+    Refuses (exit 4) without --yes when erasure requests exist: re-seeding would bring erased
+    subjects back while their requests still say they were erased.
+    """
     import sqlalchemy as sa
 
     from lae.config import get_settings
 
     s = get_settings()
     target = url or s.admin_url or s.database_url
+    if not yes:
+        eng = sa.create_engine(target)
+        with eng.connect() as conn:
+            used = conn.execute(
+                sa.text("SELECT EXISTS (SELECT 1 FROM lae.erasure_request)")
+            ).scalar_one()
+        eng.dispose()
+        if used:
+            typer.echo("refusing to re-seed: erasure requests exist (pass --yes)", err=True)
+            raise typer.Exit(4)
     cmd = [
         sys.executable,
         "-m",

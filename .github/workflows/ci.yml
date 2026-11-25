@@ -24,7 +24,7 @@ jobs:
           POSTGRES_USER: lae_owner
           POSTGRES_PASSWORD: lae_owner_ci   # ephemeral CI container only
           POSTGRES_DB: lae
-        ports: ["5433:5432"]
+        ports: ["127.0.0.1:5433:5432"]
         options: >-
           --health-cmd "pg_isready -U lae_owner -d lae"
           --health-interval 3s --health-timeout 3s --health-retries 30
@@ -43,7 +43,7 @@ jobs:
       - name: install
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e "./backend[dev]"
+          python -m pip install -e "./backend[dev]" -c backend/constraints.txt
       - name: ruff
         run: |
           ruff check backend && ruff format --check backend

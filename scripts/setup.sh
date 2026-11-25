@@ -11,7 +11,7 @@ step() { printf '==> %s\n' "$*"; }
 if [ -z "${SKIP_INSTALL:-}" ]; then
   step "pip install -e backend[dev]"
   "$PY" -m pip install --upgrade pip
-  "$PY" -m pip install -e "./backend[dev]"
+  "$PY" -m pip install -e "./backend[dev]" -c backend/constraints.txt
 fi
 if [ -z "${SKIP_FRONTEND:-}" ]; then step "npm ci"; (cd frontend && npm ci); fi
 
@@ -44,9 +44,12 @@ else
   "$PY" -m alembic -c backend/alembic.ini upgrade head
 fi
 if [ -z "${SKIP_SEED:-}" ]; then
-  url="${DATABASE_URL:-$(grep -E '^LAE_DATABASE_URL=' .env | head -1 | cut -d= -f2-)}"
+  url="${DATABASE_URL:-$(grep -E '^LAE_ADMIN_URL=' .env | head -1 | cut -d= -f2-)}"
   step "seeding (scale=${SCALE:-default} seed=${SEED:-42})"
-  "$PY" -m db.fixtures.generator --scale "${SCALE:-default}" --seed "${SEED:-42}" --url "$url"
+  rc=0
+  "$PY" -m lae.cli db seed --scale "${SCALE:-default}" --seed "${SEED:-42}" --url "$url" || rc=$?
+  if [ "$rc" -eq 4 ]; then echo "existing erasure requests: data left unchanged"
+  elif [ "$rc" -ne 0 ]; then exit "$rc"; fi
 fi
 [ -f secrets/signing_key.pem ] || "$REPO/.venv/bin/lae" keys generate --out secrets/signing_key.pem
 step "setup complete"

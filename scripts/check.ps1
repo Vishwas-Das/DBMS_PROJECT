@@ -34,8 +34,10 @@ function Gate {
     param([string]$Name, [scriptblock]$Body)
     Write-Host "==> $Name" -ForegroundColor Cyan
     $t0 = Get-Date
-    & $Body
-    $code = $LASTEXITCODE
+    # fail closed: a program that cannot start (missing, blocked by policy) leaves a STALE exit code
+    $global:LASTEXITCODE = 127
+    try { & $Body } catch { Write-Host $_ -ForegroundColor Red; $global:LASTEXITCODE = 126 }
+    $code = $global:LASTEXITCODE
     $secs = [math]::Round(((Get-Date) - $t0).TotalSeconds, 1)
     $results.Add([pscustomobject]@{ Gate = $Name; Exit = $code; Seconds = $secs })
 }
@@ -47,8 +49,8 @@ Gate "ruff (benchmarks, scripts)" {
     & "$Bin\ruff.exe" check --config backend\pyproject.toml benchmarks scripts
     if ($LASTEXITCODE -eq 0) { & "$Bin\ruff.exe" format --check --config backend\pyproject.toml benchmarks scripts }
 }
-Gate "mypy (src/lae)" { Push-Location backend; & "$Bin\mypy.exe" src\lae; Pop-Location }  # from backend/ so [tool.mypy] applies
-Gate "lint-imports" { Push-Location backend; & "$Bin\lint-imports.exe" --config pyproject.toml; Pop-Location }
+Gate "mypy (src/lae)" { Push-Location backend; & $Py -m mypy src\lae; Pop-Location }  # from backend/ so [tool.mypy] applies
+Gate "lint-imports" { Push-Location backend; & $Py -c "import sys; from importlinter.cli import lint_imports; sys.exit(lint_imports(config_filename='pyproject.toml'))"; Pop-Location }
 Gate "pytest unit" { & $Py -m pytest backend\tests -m unit -q -p no:cacheprovider }
 
 if (-not $SkipDb) {

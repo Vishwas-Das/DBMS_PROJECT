@@ -63,7 +63,7 @@ export function BenchmarksPage() {
         isEmpty={(r) => r.length === 0}
         empty={
           <EmptyState title="No benchmark runs stored">
-            Run <code>lae bench run B1 --repeat 5 --seed 42</code> to record some.
+            Run <code>python -m benchmarks.run --seed 42</code> to record some.
           </EmptyState>
         }
       >
