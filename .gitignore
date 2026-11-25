@@ -1,7 +1,12 @@
 # secrets — never commit
 secrets/
 .env
+.env.*
+!.env.example
 *.pem
+*.key
+*.p12
+*.pfx
 !backend/tests/unit/audit/vectors/*.pem
 
 # python
@@ -13,7 +18,10 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .coverage
+.coverage.*
 htmlcov/
+.hypothesis/
+.import_linter_cache/
 build/
 dist/
 
@@ -25,12 +33,16 @@ frontend/dist/
 benchmarks/results/raw/
 db/fixtures/out/
 *.log
+*.dump
+*.backup
 .pgdata/
+
+# course paperwork (names, student IDs): never part of the published repository
+*.pdf
 
 # editors
 .vscode/
 .idea/
 
-# runtime artefacts
 var/
 evidence_out/
