@@ -14,7 +14,8 @@ services:
       - lae_pgdata:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U lae_owner -d lae"]
+      # TCP on purpose: the temporary server of the first-start init scripts listens on the socket only
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U lae_owner -d lae"]
       interval: 3s
       timeout: 3s
       retries: 20
