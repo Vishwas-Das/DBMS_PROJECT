@@ -67,7 +67,7 @@ An analogy you can use: *"It's like a careful house-cleaner. First they **survey
 | **cryptography** | Ed25519 signatures, HKDF key derivation | proven library; we never wrote our own crypto |
 | **FastAPI** | REST API (23 endpoints under `/api`) | typed, auto-documented (`/docs`) |
 | **React + Vite + TypeScript + Tailwind + React Flow** | the dashboard | graph visualisation; types generated from the API |
-| **pytest / Vitest** | 1 311 automated tests | unit tests with fakes; integration tests on real PostgreSQL |
+| **pytest / Vitest** | 1 314 automated tests | unit tests with fakes; integration tests on real PostgreSQL |
 | **Docker Compose** | runs PostgreSQL locally | reproducible setup |
 
 **Architecture rule** (good to mention): the code is layered. `api → services → domain modules → contracts`. The domain modules (discovery, lineage, planner, executor, verification, audit) **never talk to the database directly**. They use small interfaces called *ports* (`TargetReader`, `TargetWriter`, `AuditSink` in `backend/src/lae/contracts/ports.py`). That lets us unit-test them with fakes. The tool `import-linter` enforces the rule automatically.
@@ -334,7 +334,7 @@ Precision = 3/4 = 0.75. Recall = 3/5 = 0.60. F1 = 2·0.75·0.60 / 1.35 ≈ 0.667
 32. *Any SQL injection risk?* Identifiers are validated against the catalog and quoted, and values are always bound parameters. Registered view SQL must be a single SELECT (checked with SQLGlot) and runs in a mode PostgreSQL won't allow multiple statements in. The tests try injection-shaped inputs and get 4xx with no damage.
 
 **Project process**
-33. *How did you test it?* 1 311 automated tests: unit tests with fakes, integration tests on real PostgreSQL, end-to-end security tests, frontend tests, and benchmarks measured by independent SQL.
+33. *How did you test it?* 1 314 automated tests: unit tests with fakes, integration tests on real PostgreSQL, end-to-end security tests, frontend tests, and benchmarks measured by independent SQL.
 34. *What bugs did testing find?* A PostgreSQL `\v` escape bug in the scan, an audit-chain fork under concurrency, a stuck re-plan after a stale plan, namesake false positives, and the app running as superuser.
 35. *What would you do next?* Store anchors off-host, add per-user authentication, add vector-similarity checks for embeddings, match case variants in confirmed links, and run the CI pipeline.
 
@@ -355,7 +355,7 @@ Precision = 3/4 = 0.75. Recall = 3/5 = 0.60. F1 = 2·0.75·0.60 / 1.35 ≈ 0.667
 - 3 outcomes: VERIFIED, PARTIAL, FAILED.
 - Isolation: SERIALIZABLE for execution.
 - Crypto: SHA-256, HMAC, hash chain, Merkle tree, Ed25519, HKDF.
-- Numbers: coverage 0.74–0.90 vs 0.24–0.48. Zero damage. The manual script fails 59/60. 1 311 tests. 23 API endpoints. 17 relations. 1 000 demo customers.
+- Numbers: coverage 0.74–0.90 vs 0.24–0.48. Zero damage. The manual script fails 59/60. 1 314 tests. 23 API endpoints. 17 relations. 1 000 demo customers.
 - Honest limits: logical (not physical) erasure; one database; whole-value matching; shared token; signature ≠ proof of erasure.
 
 ---
