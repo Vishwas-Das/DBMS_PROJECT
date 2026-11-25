@@ -14,9 +14,9 @@ import logging
 import time
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID, uuid4, uuid5
 
 from sqlalchemy.orm import Session
 
@@ -238,16 +238,16 @@ def create_snapshot(rt: Runtime, actor: str = "system") -> UUID:
         ]
         confirmed = [*fk_edges, *sql_edges]
         inferred = infer_relationships(catalog, cat_reader, exclude=confirmed)
-        # keep previously confirmed/rejected decisions on inferred edges (ids are deterministic)
+        # keep previously confirmed/rejected decisions on inferred edges
         prev = SnapshotRepo(s).latest()
-        decided: dict[UUID, EdgeStatus] = {}
+        decided: dict[_EdgeIdentity, EdgeStatus] = {}
         carried: list[RelationshipEdge] = []
         if prev is not None:
             for e in SnapshotRepo(s).load_edges(prev.id):
                 if e.origin.value != "INFERRED":
                     continue
                 if e.status is not EdgeStatus.SUGGESTED:
-                    decided[e.edge_id] = e.status
+                    decided[_edge_identity(e)] = e.status
                 # residual-scan suggestions are not re-derivable from the catalog: carry them
                 if (
                     e.details.get("evidence") == "residual_scan"
@@ -255,14 +255,16 @@ def create_snapshot(rt: Runtime, actor: str = "system") -> UUID:
                     and catalog.has_table(e.target)
                 ):
                     carried.append(e)
-        inferred = [_with_status(e, decided.get(e.edge_id, e.status)) for e in inferred]
-        seen = {e.edge_id for e in inferred}
-        inferred += [e for e in carried if e.edge_id not in seen]
+        inferred = [_with_status(e, decided.get(_edge_identity(e), e.status)) for e in inferred]
+        seen = {_edge_identity(e) for e in inferred}
+        inferred += [e for e in carried if _edge_identity(e) not in seen]
         all_edges = [*confirmed, *inferred]
 
         snaps = SnapshotRepo(s)
         snap = snaps.create(schemas, catalog.fingerprint)
         snaps.save_catalog(snap.id, catalog)
+        if prev is not None:  # discovery ids are schema-stable; lineage_edge.id is global
+            all_edges = [replace(e, edge_id=uuid5(snap.id, str(e.edge_id))) for e in all_edges]
         snaps.save_edges(snap.id, all_edges)
         snaps.set_status(
             snap.id,
@@ -288,11 +290,17 @@ def create_snapshot(rt: Runtime, actor: str = "system") -> UUID:
         return snap.id
 
 
+_EdgeIdentity = tuple[LineageLevel, TableRef, tuple[str, ...], TableRef, tuple[str, ...]]
+
+
+def _edge_identity(e: RelationshipEdge) -> _EdgeIdentity:
+    """Snapshot-independent identity of an INFERRED edge (its stored id is per snapshot)."""
+    return (e.level, e.source, e.source_columns, e.target, e.target_columns)
+
+
 def _with_status(e: RelationshipEdge, status: EdgeStatus) -> RelationshipEdge:
     if e.status is status:
         return e
-    from dataclasses import replace
-
     return replace(e, status=status)
 
 
@@ -782,6 +790,12 @@ def _execute(
     error: LaeError | None = None
     try:
         with _timed(timings, "execution"), session_scope(rt.owner, isolation="SERIALIZABLE") as s:
+            if mode is ExecutionMode.LIVE:
+                # re-check inside the transaction: the plan may have been superseded since
+                if PlanRepo(s).record(plan_id).status is not PlanStatus.APPROVED:
+                    raise InvalidStateTransition("only an APPROVED plan can be executed LIVE")
+                if PlanRepo(s).approval(plan_id) != approval:
+                    raise InvalidStateTransition("the approval changed before execution")
             ctx = load_lineage(rt, s, rec.snapshot_id)
             policies = PolicyRepo(s).policy_set()
             writer = PgTargetWriter(
@@ -887,8 +901,9 @@ def verify(rt: Runtime, execution_run_id: UUID, actor: str) -> UUID:
         run = ExecutionRepo(s).get(execution_run_id)
         if run.mode is not ExecutionMode.LIVE or run.status is not ExecutionStatus.COMMITTED:
             raise InvalidStateTransition("only a committed LIVE execution can be verified")
-        vrun = VerificationRepo(s).start(execution_run_id, started_at=rt.clock())
         prec = PlanRepo(s).record(run.plan_id)
+        _request_subject(s, prec.request_id)  # a closed (purged) request cannot be re-verified
+        vrun = VerificationRepo(s).start(execution_run_id, started_at=rt.clock())
     try:
         with session_scope(rt.reader, isolation="REPEATABLE READ", read_only=True) as s:
             plan = PlanRepo(s).get(run.plan_id)
@@ -969,8 +984,6 @@ def _suggest_from_residual_hits(
     root.<identifier column> -> hit column, preferring an identifier column with the same name.
     A human must CONFIRM it before discovery traverses it.
     """
-    from uuid import uuid5
-
     from lae.contracts.enums import CheckType, EdgeOrigin, Traceability, Transform
 
     hits: list[dict[str, Any]] = []
@@ -997,7 +1010,8 @@ def _suggest_from_residual_hits(
         sources = [c for c in root.identifier_columns if c == col] or list(root.identifier_columns)
         for src in sources:
             for level in (LineageLevel.TABLE, LineageLevel.COLUMN):
-                eid = uuid5(_RESIDUAL_NS, f"{level}|{root.table}.{src}|{target}.{col}")
+                stable = uuid5(_RESIDUAL_NS, f"{level}|{root.table}.{src}|{target}.{col}")
+                eid = uuid5(snapshot_id, str(stable))
                 if eid in existing or (level, root.table, (src,), target, (col,)) in same_pair:
                     continue  # already suggested (e.g. by containment inference)
                 new.append(

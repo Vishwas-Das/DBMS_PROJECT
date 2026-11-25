@@ -312,3 +312,82 @@ def test_shared_name_does_not_cause_false_residual_failure(env: dict[str, Any]) 
     finally:
         with session_scope(rt.owner) as s:
             ArtifactRepo(s).update(ext.definition, is_active=True)
+
+
+def test_schema_change_creates_a_second_snapshot_and_keeps_decisions(env: dict[str, Any]) -> None:
+    """Repository audit: edge ids were global, so a second snapshot hit the lineage_edge PK."""
+    from lae.contracts.enums import EdgeStatus
+    from lae.db.repositories import SnapshotRepo
+    from lae.services import pipeline
+
+    engine, rt, c = env["engine"], env["rt"], env["client"]
+
+    def load(sid: Any) -> dict[Any, Any]:
+        with session_scope(rt.owner) as s:
+            return {
+                (
+                    e.origin,
+                    e.level,
+                    e.source,
+                    e.source_columns,
+                    e.target,
+                    e.target_columns,
+                    e.constraint_name,
+                ): e
+                for e in SnapshotRepo(s).load_edges(sid)
+            }
+
+    first = pipeline.latest_or_new_snapshot(rt, "t")
+    inferred = [e for e in load(first).values() if e.origin.value == "INFERRED"]
+    if inferred:
+        pipeline.set_edge_status(rt, inferred[0].edge_id, EdgeStatus.REJECTED, "t")
+    with engine.begin() as conn:
+        conn.execute(sa.text("ALTER TABLE app.product ADD COLUMN audit_note text"))
+    try:
+        _, plan = _plan(c, _clean_subject(env["truth"]))
+        second = pipeline.latest_or_new_snapshot(rt, "t")
+        third = pipeline.create_snapshot(rt, "t")  # explicit re-scan of an unchanged schema
+        assert len({first, second, third}) == 3 and plan["items"]
+        a, b, d = load(first), load(second), load(third)
+        assert set(a) == set(b) == set(d)
+        assert not {e.edge_id for e in a.values()} & {e.edge_id for e in b.values()}
+        assert {k: e.status for k, e in a.items()} == {k: e.status for k, e in d.items()}
+    finally:
+        with engine.begin() as conn:
+            conn.execute(sa.text("ALTER TABLE app.product DROP COLUMN audit_note"))
+
+
+def test_plan_superseded_between_checks_and_execution_changes_nothing(
+    env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Repository audit: status/approval are re-read inside the SERIALIZABLE transaction."""
+    from lae.contracts.enums import ExecutionMode, PlanStatus
+    from lae.db.repositories import PlanRepo
+    from lae.errors import InvalidStateTransition
+    from lae.services import pipeline
+
+    c, engine, rt = env["client"], env["engine"], env["rt"]
+    subject = _clean_subject(env["truth"])
+    _, plan = _plan(c, subject)
+    r = c.post(
+        f"/api/erasure-plans/{plan['id']}/approve",
+        json={"plan_hash": plan["plan_hash"]},
+        headers={"X-LAE-Token": TOKEN, "X-LAE-Actor": "approver-9"},
+    )
+    assert r.status_code == 200, r.text
+    # the supersede commits after the pre-checks, before the execution snapshot is taken
+    start = pipeline.ExecutionRepo.start
+
+    def start_then_supersede(self: Any, *a: Any, **k: Any) -> Any:
+        out = start(self, *a, **k)
+        PlanRepo(self.session).set_status(plan["id"], PlanStatus.SUPERSEDED)
+        return out
+
+    monkeypatch.setattr(pipeline.ExecutionRepo, "start", start_then_supersede)
+    with pytest.raises(InvalidStateTransition):
+        pipeline.execute(rt, plan["id"], ExecutionMode.LIVE, "executor-9")
+    with engine.connect() as conn:
+        n = conn.execute(
+            sa.text("SELECT count(*) FROM app.customer WHERE id = :s"), {"s": subject}
+        ).scalar_one()
+    assert n == 1
