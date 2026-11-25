@@ -2,12 +2,12 @@
 
 Date: 2026-11-25. Code audited: `f8878c8`, plus the fixes listed in section 7 (`b36cd1d` … `b985066`). All results below come from commands run during this audit. LAE is an academic research prototype. Nothing here is a claim of legal compliance or of physical destruction of data.
 
-**Verdict: ready to publish as a research prototype**, with the open findings in section 8 disclosed. No CRITICAL finding is open. One HIGH finding (E2) is open and documented.
+**Verdict: published as a research prototype**, with the open findings in section 8 disclosed. No CRITICAL finding is open. One HIGH finding (E2) is open and documented.
 
 ## 1. Repository health
 
 - Branch `main`. It contains the published head `42d0bde`, so it fast-forwards without rewriting anything. `9b00d54` and `73534a2` are present, and the 34 original commits are unchanged.
-- Remote `origin`: a **public** GitHub repository whose `main` was at `42d0bde` (9 commits) before this publication.
+- Remote `origin`: a GitHub repository (public during the audit, now private) whose `main` was at `42d0bde` (9 commits) before this publication.
 - No tracked file matches an ignore rule. Packed size is about 4.2 MiB, and the largest published file is a 377 kB screenshot.
 
 ## 2. Functional validation (clean clone, Windows 11, Windows PowerShell 5.1)
@@ -37,7 +37,11 @@ A fresh clone was set up with `scripts\setup.ps1` against a new Docker volume in
 | **Total** | **1 241 backend + 73 frontend = 1 314 passed, 0 failed** |
 | `npm audit` | 0 vulnerabilities |
 
-Not run: GitHub Actions (the workflow has never executed), the benchmarks (too long; the corrected claims were checked against the stored raw data and the tables against `summary.md`), the Edge/CDP browser smoke test, `setup.sh`, and a Python dependency vulnerability scan.
+**GitHub Actions.** The first run (45634175782, commit `745a478`, 2026-11-25) **failed**. Frontend job: passed. Backend job: install and ruff passed, mypy failed, and import rules plus all test steps were skipped as a result. Cause: `mypy backend/src/lae` ran from the repository root, where `[tool.mypy]` in `backend/pyproject.toml` does not apply (3 errors, reproduced on Windows and Linux; none from `backend/`). The workflow now runs mypy from `backend/` with the same strict settings. Database URLs and the health check also use 127.0.0.1, and the pip cache key includes `constraints.txt`.
+
+Before that fix was pushed, every backend CI command was run on Linux (`python:3.12-slim` with `pgvector/pgvector:pg16`): all exit 0, 907 unit + 270 integration + 64 end-to-end tests passed, none skipped. This reproduces the commands, not the GitHub runner. The result of the GitHub run that follows the fix is **not recorded here**, because it happens after this text is committed: see the Actions page.
+
+Not run: the benchmarks (too long; the corrected claims were checked against the stored raw data and the tables against `summary.md`), the Edge/CDP browser smoke test, `setup.sh`, and a Python dependency vulnerability scan.
 
 ## 4. Security findings
 
@@ -96,4 +100,4 @@ E2 (bundle format), E6 (partly), E8, E9 and E11–E13 above, plus [limitations.m
 
 ## 10. Publication readiness
 
-**READY**, by normal fast-forward push of `main` only. The push also triggers the first CI run, whose result is unknown until then.
+Published on 2026-11-25 by normal fast-forward push of `main` (`42d0bde` to `745a478`). The repository was public at that time and was made private afterwards by the owner. CI status: section 3.

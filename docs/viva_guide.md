@@ -336,7 +336,7 @@ Precision = 3/4 = 0.75. Recall = 3/5 = 0.60. F1 = 2·0.75·0.60 / 1.35 ≈ 0.667
 **Project process**
 33. *How did you test it?* 1 314 automated tests: unit tests with fakes, integration tests on real PostgreSQL, end-to-end security tests, frontend tests, and benchmarks measured by independent SQL.
 34. *What bugs did testing find?* A PostgreSQL `\v` escape bug in the scan, an audit-chain fork under concurrency, a stuck re-plan after a stale plan, namesake false positives, and the app running as superuser.
-35. *What would you do next?* Store anchors off-host, add per-user authentication, add vector-similarity checks for embeddings, match case variants in confirmed links, and run the CI pipeline.
+35. *What would you do next?* Store anchors off-host, add per-user authentication, add vector-similarity checks for embeddings, and match case variants in confirmed links.
 
 **Trick questions**
 36. *Is this GDPR compliant?* We don't claim legal compliance. It's a research prototype showing the technical mechanism. Retention rules are inputs from the operator.

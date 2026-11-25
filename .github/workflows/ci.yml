@@ -1,4 +1,4 @@
-# CI quality gates (same as scripts/check.ps1). Written for GitHub Actions; not executed locally.
+# CI quality gates (same as scripts/check.ps1). Written for GitHub Actions.
 name: ci
 
 on:
@@ -26,12 +26,12 @@ jobs:
           POSTGRES_DB: lae
         ports: ["127.0.0.1:5433:5432"]
         options: >-
-          --health-cmd "pg_isready -U lae_owner -d lae"
+          --health-cmd "pg_isready -h 127.0.0.1 -U lae_owner -d lae"
           --health-interval 3s --health-timeout 3s --health-retries 30
     env:
-      PG_SERVER: postgresql+psycopg://lae_owner:lae_owner_ci@localhost:5433
-      LAE_DATABASE_URL: postgresql+psycopg://lae_owner:lae_owner_ci@localhost:5433/lae
-      LAE_ADMIN_URL: postgresql://lae_owner:lae_owner_ci@localhost:5433/postgres
+      PG_SERVER: postgresql+psycopg://lae_owner:lae_owner_ci@127.0.0.1:5433
+      LAE_DATABASE_URL: postgresql+psycopg://lae_owner:lae_owner_ci@127.0.0.1:5433/lae
+      LAE_ADMIN_URL: postgresql://lae_owner:lae_owner_ci@127.0.0.1:5433/postgres
       LAE_TARGET_SCHEMAS: app
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +39,9 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: backend/pyproject.toml
+          cache-dependency-path: |
+            backend/pyproject.toml
+            backend/constraints.txt
       - name: install
         run: |
           python -m pip install --upgrade pip
@@ -50,7 +52,8 @@ jobs:
           ruff check --config backend/pyproject.toml benchmarks scripts
           ruff format --check --config backend/pyproject.toml benchmarks scripts
       - name: mypy
-        run: mypy backend/src/lae
+        working-directory: backend   # so [tool.mypy] (strict, pydantic plugin) applies
+        run: mypy src/lae
       - name: lint-imports
         working-directory: backend
         run: lint-imports --config pyproject.toml

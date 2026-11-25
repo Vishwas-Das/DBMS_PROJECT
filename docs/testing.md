@@ -44,7 +44,7 @@ $env:LAE_TEST_DATABASE_URL="postgresql+psycopg://lae_owner:lae_owner_dev@127.0.0
 ..\.venv\Scripts\python -m pytest tests\unit\planner --collect-only -q
 ```
 
-Quality gates (CLAUDE.md): `ruff check backend`, `ruff format --check backend`, `mypy backend\src\lae`, `lint-imports --config backend\pyproject.toml`. `scripts\check.ps1` runs everything; results are in [final_repository_audit.md](final_repository_audit.md).
+Quality gates (CLAUDE.md): `ruff check backend`, `ruff format --check backend`, and, from `backend/` so that its `pyproject.toml` applies, `mypy src\lae` and `lint-imports --config pyproject.toml`. `scripts\check.ps1` runs everything; results are in [final_repository_audit.md](final_repository_audit.md).
 
 ## 4. Inventory (real counts)
 
