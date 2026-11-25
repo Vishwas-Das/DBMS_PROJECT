@@ -33,7 +33,7 @@ Python 3.12 · FastAPI · SQLAlchemy 2.0 (sync) + psycopg 3 · Alembic · Postgr
 - Python: `ruff` (lint + format, line length 100), `mypy --strict` on `src/lae`. Type hints everywhere. `from __future__ import annotations`.
 - Contracts: `@dataclass(frozen=True, slots=True)`, tuples not lists. Enums are `StrEnum` with values identical to the DB `CHECK` lists.
 - DB naming: singular snake_case tables, `id uuid` PKs, `<table>_id` FKs, `*_at timestamptz`, `*_hash char(64)` hex, `text + CHECK` for enums, SQLAlchemy naming convention from database_schema.md §1.
-- API: `/api/v1`, snake_case JSON, Pydantic v2 with `extra="forbid"`, errors always use `{"error": {code, message, details}}`.
+- API: `/api`, snake_case JSON, Pydantic v2 with `extra="forbid"`, errors always use `{"error": {code, message, details}}`.
 - Frontend: TypeScript strict. API types are generated (`npm run gen:api`) and never hand-written. No business logic in components.
 - Small modules. Pure functions where possible. No global mutable state. Use `logging`, never `print`, in library code.
 
@@ -57,7 +57,7 @@ Python 3.12 · FastAPI · SQLAlchemy 2.0 (sync) + psycopg 3 · Alembic · Postgr
 # one-time (after approval)
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -e ".\backend[dev]"
+pip install -e ".\backend[dev]" -c .\backend\constraints.txt
 cd frontend; npm install; cd ..
 
 # database

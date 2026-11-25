@@ -1,5 +1,7 @@
 # Development Progress and Final Acceptance Report
 
+> Historical report of 2026-11-05. Later changes and re-run results: [final_repository_audit.md](final_repository_audit.md).
+
 Final state: `main`, 31 commits (4471f3d … this commit), 2026-11-05. Every status below is backed by a test or a command that was actually run on the final code. "Test evidence" names the suite or test.
 
 ## 1. Final verification run (final code)
@@ -47,7 +49,7 @@ Line coverage (unit suite only): 77 % overall. lineage 100 %, audit and verifica
 
 ## 3. Acceptance tests AT-01 … AT-24 (development_plan.md §6)
 The mapping is in [testing.md](testing.md). Every AT has at least one covering test. **Divergences from the original wording** (the code's behaviour is the documented one):
-- **AT-06:** inference at θ = 0.95 does *not* suggest `marketing_event_log.email` (containment 0.805). The residual scan finds those copies, and its feedback creates the suggestion.
+- **AT-06:** inference at θ = 0.95 does *not* suggest `marketing_event_log.email` (tiny scale: containment 17/19, confidence 0.805). The residual scan finds those copies, and its feedback creates the suggestion.
 - **AT-11:** reworded (CR erasure-1): ANONYMIZE under a deleted parent with CASCADE gives `CASCADE_DESTROYS_RETAINED`.
 - **AT-15:** a failed LIVE run is recorded as `EXECUTION_FAILED` (`EXECUTION_ROLLED_BACK` is used for dry runs).
 - **AT-17:** a repeat LIVE execution returns 409 `INVALID_STATE` (the plan is no longer APPROVED) rather than `ALREADY_EXECUTED`. The DB unique index still guarantees idempotency.

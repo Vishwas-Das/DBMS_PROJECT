@@ -123,7 +123,7 @@ The hard cases are created on purpose for known subjects (`KnownSubjects.for_sca
 
 ### 5.2 Methods compared (baselines)
 
-The comparison is defined by architecture.md §14 (B5) and implemented by the benchmark harness in `benchmarks/methods.py`. **Note:** at HEAD `118846f` the `benchmarks/ directory is not committed. It exists only in the working tree (untracked) while it is being written, so the details below describe the work in progress.
+The comparison is defined by architecture.md §14 (B5) and implemented by the benchmark harness in `benchmarks/methods.py`. The harness and its results (`benchmarks/results/summary.md`) are committed.
 
 | Method | Description (from `benchmarks/methods.py`) |
 |---|---|
@@ -139,10 +139,10 @@ All are defined precisely in [mathematical_functions.md](mathematical_functions.
 - **Residual matches** after erasure (the `RESIDUAL_VALUE_SCAN` `count`). This is a *match* count summed over normalizations, not a distinct-row count (CR verification-crypto-engineer-3 §4, accepted as a caveat).
 - **Coverage** = verified items / required items, and the outcome distribution.
 - **Safety violations**: other subjects', shared or retained rows that were destroyed. The e2e test checks these with direct SQL (`test_full_erasure_happy_path_checked_against_the_database`).
-- **Latency** p50/p95 per phase (snapshot, discovery, plan, execute, verify, evidence). The percentile method is the one in `benchmarks/stats.py` (linear interpolation, see mathematical_functions.md §11).
+- **Latency** p50/p95 per phase (snapshot, discovery, plan, execute, verify, evidence). The percentile method is the one in `benchmarks/stats.py` (linear interpolation, see mathematical_functions.md §12).
 - **Drift detection rate** for concurrent inserts between approval and execution (`STALE_PLAN`).
 
-Scenarios B1–B6 are specified in architecture.md §14. Their implementation is part of the uncommitted harness. architecture.md §14 names B1 sizes of 1k/10k/100k subjects, but the largest generator preset (`large`) has 10 000 customers, so 100k would need a custom `ScaleParams`.
+Scenarios B1–B6 are specified in architecture.md §14. Only B5 (completeness and latency) is implemented, at 100 / 1 000 / 10 000 customers plus the feedback experiment. architecture.md §14 names B1 sizes of 1k/10k/100k subjects, but the largest generator preset (`large`) has 10 000 customers, so 100k would need a custom `ScaleParams`.
 
 ### 5.4 What has been measured so far (from tests, not benchmarks)
 
@@ -167,7 +167,7 @@ Scenarios B1–B6 are specified in architecture.md §14. Their implementation is
 - One PostgreSQL database. Backups, WAL, replicas, files and external systems are out of scope. Erasure is **logical**, not physical (risks §2.1).
 
 **Conclusion validity**
-- Laptop timings (Windows host, Docker VM) are noisy. Benchmarks need repeated runs, p50/p95 and recorded environment. No benchmark results exist in the repository at HEAD.
+- Laptop timings (Windows host, Docker VM) are noisy. Benchmarks need repeated runs, p50/p95 and recorded environment. See benchmarking.md for the measured results and their caveats.
 
 ## 7. References
 

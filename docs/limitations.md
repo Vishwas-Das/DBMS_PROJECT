@@ -9,7 +9,7 @@ This page lists what LAE does **not** do, could not verify, or does only partly.
 
 ## 2. Discovery
 4. **Lineage sources** are declared FKs, view/matview definitions (SQLGlot), registered key mappings, and human-confirmed inferred edges. Application code, triggers, stored procedures, ETL jobs and `INSERT … SELECT` history are not analysed.
-5. **Inference is conservative.** At θ = 0.95 the containment-based inference did *not* suggest `marketing_event_log.email → customer.email` (containment 17/19 = 0.805 at tiny scale, because the hidden copies differ in case and whitespace). The lineage-independent **residual scan** finds these copies, and its hits are fed back as SUGGESTED edges for a human to confirm.
+5. **Inference is conservative.** At θ = 0.95 the containment-based inference did *not* suggest `marketing_event_log.email → customer.email` at tiny scale (containment 17/19 ≈ 0.895, confidence 0.805, because the hidden copies differ in case and whitespace). At default scale it does suggest the edge (951/953). The lineage-independent **residual scan** finds these copies, and its hits are fed back as SUGGESTED edges for a human to confirm.
 6. **Exact-match traversal.** A confirmed text edge (`customer.email → marketing_event_log.email`) deletes rows whose value equals the subject's value exactly. Case and whitespace variants survive and are reported by the residual scan, giving an honest FAILED outcome.
 7. **SQLGlot coverage.** Recursive CTEs, unknown functions, `LATERAL` set-returning functions and dynamic SQL make an artifact `OPAQUE`, which gives an `UNRESOLVED` item (outcome at most PARTIAL). Without the service's `extra_keys`, `GROUP BY customer_id` matviews would be classified AGGREGATE instead of KEY_PRESERVING.
 8. **The SHARED rule is conservative.** A subject's message on an anonymous or other subject's ticket is classified SHARED (never deleted) even where a human might call it owned.
@@ -31,14 +31,20 @@ This page lists what LAE does **not** do, could not verify, or does only partly.
 19. **EMBEDDING_ABSENT is key-based.** The vector-digest comparison was deferred, so embeddings of the subject stored under unrelated keys are not detected. Information memorised in model weights is out of scope.
 
 ## 5. Audit and evidence
-20. **A valid signature ≠ complete erasure.** See the trust model in [security_analysis.md §3](security_analysis.md). Always read `verification.outcome`.
+20. **A valid signature ≠ complete erasure.** See the trust model in [security_analysis.md §3](security_analysis.md). The signed v1 bundle carries `verification.status` and the checks, **not** the VERIFIED / PARTIAL / FAILED outcome: a PARTIAL erasure is signed with status `PASSED`. Read the outcome from the API or from the `VERIFICATION_COMPLETED` / `EVIDENCE_ISSUED` audit events.
 21. **Tamper-evident, not tamper-proof.** A DB superuser can rewrite the whole chain consistently. This is detectable only against chain-head anchors stored by a third party. `lae audit export-head` writes them to the local `var/anchors` directory, which is not truly external.
 22. **Purge only on VERIFIED.** PARTIAL and FAILED requests keep the raw subject key (needed for follow-up), with no retention deadline. `erasure_request.reason` and actor strings are never purged.
 23. API `event_id` is derived from the event hash, not the stored `event_id` column.
 
+23a. **Re-verification does not re-issue evidence.** Evidence is issued (and raw keys purged) once, after execution. A later re-verification that becomes VERIFIED neither replaces the bundle nor purges the keys.
+23b. Anchors are written but no CLI or API command checks them (`verify_anchor` is only a library function). The UI's `signature_valid` trusts the public key stored in the database; use `lae verify-evidence` with a key you trust.
+
 ## 6. Security and operations
 24. **Local-prototype auth:** one shared token. `X-LAE-Actor` is a self-asserted claim (four-eyes compares claims). No per-user identity.
 25. Dev-only passwords in compose/init. The signing key is unencrypted PEM. File mode 0600 is ineffective on Windows.
+25a. **`lae erase --live --yes` satisfies four-eyes alone**, because one operator supplies both default names.
+25b. A plan built with raised discovery limits cannot be executed: the drift check uses the default limits. The duplicate-open-request check has no unique index behind it, so two simultaneous requests can both pass.
+25c. `lae_executor` is an unused LOGIN role with DML on `app`. `/docs`, `/redoc` and `/openapi.json` need no token. A database password passed with `--url` is visible in the process list.
 26. The compose port binding to `127.0.0.1` takes effect only after the DB container is recreated.
 
 ## 7. Evaluation validity

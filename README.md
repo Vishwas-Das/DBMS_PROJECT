@@ -37,14 +37,14 @@ Stack: Python 3.12 · FastAPI · SQLAlchemy 2 + psycopg 3 · Alembic · PostgreS
 
 ## Run it locally (Windows PowerShell)
 
-Prerequisites: Python 3.12 (`py -3.12`), Node 24 + npm, Docker Desktop.
+Prerequisites: Python 3.12 (`py -3.12`), Node 22 or newer + npm, Docker Desktop.
 
 ```powershell
 # 1. one-time setup: venv + packages, DB container, migrations, synthetic data, keys, .env
 .\scripts\setup.ps1
 #    (manual equivalent)
 py -3.12 -m venv .venv
-.\.venv\Scripts\pip install -e ".\backend[dev]"
+.\.venv\Scripts\pip install -e ".\backend[dev]" -c .\backend\constraints.txt   # tested versions
 cd frontend; npm ci; cd ..
 docker compose up -d db                    # PostgreSQL 16 + pgvector on 127.0.0.1:5433
 copy .env.example .env                     # then fill LAE_HMAC_KEY (lae keys hmac) and LAE_API_TOKEN (>= 24 chars)
@@ -64,6 +64,8 @@ copy .env.example .env                     # then fill LAE_HMAC_KEY (lae keys hm
 .\.venv\Scripts\python -m benchmarks.run --scales small,default,large --subjects 20 --seed 42 `
     --db-url postgresql+psycopg://lae_owner:lae_owner_dev@127.0.0.1:5433/lae_test_bench
 ```
+
+Re-seeding is refused once erasure requests exist (`lae db seed --yes` overrides it). If Windows Application Control blocks the unsigned launcher `lae.exe`, use `.\.venv\Scripts\python -m lae.cli` instead of `.\.venv\Scripts\lae`.
 
 CLI without the UI:
 ```powershell
@@ -96,7 +98,7 @@ CLI without the UI:
    - Confirm the edge, erase the next such customer: the hidden copies are now deleted.
 8. **Safety:** a customer whose ticket contains another customer's message gives a *blocked* plan, and the other person's message is never deleted.
 
-Screenshots: [docs/screenshots/](docs/screenshots/). Screenshot 05 shows a run from *before* the namesake fix, where another customer's identical name made a correct erasure FAILED. It is kept as evidence of the defect we found and fixed.
+Screenshots: [docs/screenshots/](docs/screenshots/). Screenshots 01–12 were taken from the live system *before* the namesake fix and show synthetic data only. In screenshot 05 another customer's identical name made a correct erasure FAILED. It is kept as evidence of the defect we found and fixed.
 
 ## Results at a glance (measured, seed 42, 20 subjects per scale)
 
@@ -108,8 +110,14 @@ Screenshots: [docs/screenshots/](docs/screenshots/). Screenshot 05 shows a run f
 | Unrelated rows damaged | 0 | 0 | **0** |
 | Total latency p50 per request | 22–30 ms | 137–156 ms | 1.25–7.5 s |
 
-After one human confirmation of a residual-scan suggestion, LAE removed 82–95 % of the hidden copies for later subjects. Details, caveats and threats to validity: [docs/benchmarking.md](docs/benchmarking.md).
+![Lineage Explorer, table level](docs/screenshots/06-lineage-table.png)
+
+After one human confirmation of a residual-scan suggestion, LAE removed 83–95 % of the hidden copies for later subjects. Details, caveats and threats to validity: [docs/benchmarking.md](docs/benchmarking.md).
 
 ## Documentation
 
-[Architecture](docs/architecture.md) · [Database schema](docs/database_schema.md) · [Module contracts](docs/module_contracts.md) · [Methodology](docs/methodology.md) · [Algorithms](docs/algorithms.md) · [Mathematical functions](docs/mathematical_functions.md) · [API](docs/api_documentation.md) · [Testing](docs/testing.md) · [Benchmarking](docs/benchmarking.md) · [Security analysis](docs/security_analysis.md) · [Limitations](docs/limitations.md) · [Development progress](docs/development_progress.md)
+[Architecture](docs/architecture.md) · [Database schema](docs/database_schema.md) · [Module contracts](docs/module_contracts.md) · [Methodology](docs/methodology.md) · [Algorithms](docs/algorithms.md) · [Mathematical functions](docs/mathematical_functions.md) · [API](docs/api_documentation.md) · [Testing](docs/testing.md) · [Benchmarking](docs/benchmarking.md) · [Security analysis](docs/security_analysis.md) · [Limitations](docs/limitations.md) · [Development progress](docs/development_progress.md) · [Technical walkthrough](docs/technical_walkthrough.md) · [Viva guide](docs/viva_guide.md) · [Repository audit](docs/final_repository_audit.md)
+
+## License
+
+No license file has been added. Until the owner adds one, all rights are reserved.

@@ -52,7 +52,7 @@ After LAE ran on S1, the SUGGESTED edges produced by the residual scan (`custome
 | default | 0.749 / 50 / FAILED 9, PARTIAL 6 | **0.818 / 16 / PARTIAL 15** | 34 / 39 |
 | large | 0.791 / 34 / FAILED 7, PARTIAL 7 | **0.827 / 14 / PARTIAL 14** | 20 / 24 |
 
-One human confirmation of a suggestion produced by the **lineage-independent** scan removed 82–95 % of the hidden copies for later subjects. The copies that remain are case/whitespace variants, which exact-match traversal cannot reach (limitation 6). The scan still counts them as matches, but here they fall under the conservative pass rule, hence PARTIAL. Recall rose to 1.0 in every after-feedback set.
+One human confirmation of a suggestion produced by the **lineage-independent** scan removed 83–95 % of the hidden copies for later subjects. All remaining copies (3, 5 and 4 at the three scales) belong to subjects whose plan was BLOCKED, so nothing was executed for them. Every committed subject's copies were erased (58/58, 34/34, 20/20). PARTIAL comes only from the unverifiable external CRM artifact. Recall rose to 1.0 in every after-feedback set.
 
 ## 5. Results: latency (ms per subject, total p50 / p95)
 
@@ -62,16 +62,16 @@ One human confirmation of a suggestion produced by the **lineage-independent** s
 | default | 28 / 39 | 156 / 250 | 1 712 / 2 029 | 110 / 302 / 255 / 832 |
 | large | 22 / 32 | 151 / 240 | 7 511 / 18 336 | 152 / 948 / 371 / 5 694 |
 
-LAE is 10–50× slower than the baselines. The **verification** phase dominates at large scale, because the residual scan computes an HMAC over every text cell of every target table (O(total text cells)). The large p95 of 18 s comes from one measured 25.4 s verification. Planning includes a second discovery pass (the pipeline re-discovers inside `generate_plan`). These costs are per erasure request, not per query of the application. Whether they are acceptable depends on request volume, which we did not measure.
+At p50, LAE is about 9–50× slower than B2 and 42–340× slower than B1. The **verification** phase dominates at large scale, because the residual scan computes an HMAC over every text cell of every target table (O(total text cells)). The large p95 values (total 18.3 s, verification 25.4 s) are interpolations pulled up by one 192.8 s verification outlier. The next slowest verification took 6.9 s. Planning includes a second discovery pass (the pipeline re-discovers inside `generate_plan`). These costs are per erasure request, not per query of the application. Whether they are acceptable depends on request volume, which we did not measure.
 
 ## 6. Results: database overhead (LAE)
 
-0.84–1.58 MB added to schema `lae` per set of 20 requests. 77–90 rows written to `lae` per request (plan items, record dependencies, checks, evidence). 7.2–8.7 audit events per request. Ambiguous (non-unique) residual probes were excluded for 4/20 (small), 17/20 (default) and 20/20 (large) subjects in S1. Larger populations contain more namesakes, which is the measured cost of the namesake fix (limitation 17a).
+0.88–1.58 MB added to schema `lae` per set of 20 requests. 77–90 rows written to `lae` per request (plan items, record dependencies, checks, evidence). 7.2–8.7 audit events per request. Ambiguous (non-unique) residual probes were excluded for 4/20 (small), 17/20 (default) and 20/20 (large) subjects in S1. Larger populations contain more namesakes, which is the measured cost of the namesake fix (limitation 17a).
 
 ## 7. Threats to validity
 - **One synthetic generator.** Its hard cases (RESTRICT orders, shared tickets, hidden copies) are designed. Real schemas will differ.
 - **The ground truth's notion of "owned"** follows the same design as the planner, although it is computed independently.
-- **20 subjects per set.** p95 is sensitive to single outliers (e.g. the 25.4 s verification).
+- **20 subjects per set.** p95 is sensitive to single outliers (e.g. the 192.8 s verification).
 - **Laptop timings** (Windows host, Docker VM, warm caches) are noisy and not comparable to server hardware.
 - **Scales and baselines:** B1/B2 are our implementations of the baselines, not third-party tools.
 

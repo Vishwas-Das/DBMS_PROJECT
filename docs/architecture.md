@@ -1,6 +1,6 @@
 # Lineage-Aware Erasure Engine (LAE): Architecture
 
-Status: **DRAFT v0.1, awaiting approval**. Owner: Lead Architect.
+Status: **APPROVED 2026-11-04** (design document; deviations in the code are listed in [technical_walkthrough.md](technical_walkthrough.md), Appendix B). Owner: Lead Architect.
 Related: [database_schema.md](database_schema.md) · [module_contracts.md](module_contracts.md) · [development_plan.md](development_plan.md) · [risks_and_limitations.md](risks_and_limitations.md)
 
 ---
@@ -398,7 +398,7 @@ Purpose: produce measured research results, not demos.
 | B6 Concurrency | concurrent inserts during plan→execute | rate of `StalePlanError` detection (must be 100 %) |
 
 - **Reproducibility:** each run stores `params`, `seed`, `git_commit`, Python, PostgreSQL and package versions, host CPU/RAM, and the PG settings that matter (`shared_buffers`, `work_mem`) in `lae.benchmark_run` and `benchmarks/results/<timestamp>_<scenario>.json`. A run starts with `VACUUM ANALYZE` and drops caches where possible (warm vs cold labelled).
-- Runner: `lae bench run B1 --repeat 5 --seed 42`. Plots come from a notebook-free script `benchmarks/report.py` → `benchmarks/results/summary.md`.
+- Runner (as implemented): `python -m benchmarks.run`. Plots come from a notebook-free script `benchmarks/report.py` → `benchmarks/results/summary.md`.
 
 ---
 

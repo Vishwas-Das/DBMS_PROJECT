@@ -371,7 +371,9 @@ Golden test vectors (fixed inputs → fixed hashes and signatures with a fixed t
 
 ## 9. FastAPI, owned by the Lead
 
-Prefix `/api/v1`. All handlers are thin: validate → call a service → map to `*Out`.
+> Paths in this table were superseded by CR lead-1 §4: the implemented prefix is `/api`, and [openapi.json](openapi.json) is authoritative. `lae/api/errors.py` and `Retry-After` were not implemented.
+
+Prefix `/api/v1` (design; implemented as `/api`). All handlers are thin: validate → call a service → map to `*Out`.
 
 | Method | Path | Request | Response | Service call |
 |---|---|---|---|---|

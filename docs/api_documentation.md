@@ -28,9 +28,8 @@ Responses are **trimmed** for length (`"... n more trimmed ..."` marks removed l
 | `DISCOVERY_LIMIT` | 413 | `max_depth` / `max_records` exceeded |
 | `SERIALIZATION_CONFLICT` | 503 | PostgreSQL serialization failure (not retried automatically) |
 | `UNAUTHORIZED` | 401 | missing or wrong token |
-| **any other code** | **500** | for example `CONFLICT_NOT_ACKNOWLEDGEABLE`, `CONFLICT_NOT_FOUND`, `CONFLICT_ALREADY_RESOLVED`, `INVALID_PLAN`, `MISSING_DEFINITION`, `STEP_FAILED`, `TARGET_QUERY`, `VERIFICATION`, `AUDIT_INTEGRITY`, `CONFIGURATION`, `GRAPH_INTEGRITY`, `CATALOG`, `INTERNAL` |
+| **any other code** | by family | `NotFoundError` 404, `ValidationError` 422, `PlanError` / `ExecutionError` 409 (for example `CONFLICT_NOT_ACKNOWLEDGEABLE`, `INVALID_PLAN`, `STEP_FAILED`). Everything else is 500 (`VERIFICATION`, `AUDIT_INTEGRITY`, `CONFIGURATION`, `GRAPH_INTEGRITY`, `CATALOG`, `INTERNAL`) |
 
-> **Note:** domain `PlanError` codes that are not in `STATUS_BY_CODE` (for example acknowledging a non-acknowledgeable conflict) return **HTTP 500 with their own code**. CR erasure-engine-engineer-1 §4 proposed 404/409/422 for them, but that mapping is not implemented. See the sample in §5.3.
 
 - **Logging:** the access-log middleware records method, path template, status and duration, plus an `X-Request-Id` response header. Bodies and query strings are never logged.
 - **Long operations are synchronous.** LIVE execution also runs verification and evidence issuance in the same HTTP call.
@@ -429,7 +428,7 @@ HTTP 200
 
 
 ### 4.3 `GET /api/lineage/schema?level=TABLE|COLUMN`
-- **Auth:** token. **Response:** `SchemaGraphOut {snapshot_id, level, nodes: list[GraphNodeOut], edges: list[GraphEdgeOut]}` for the latest snapshot. Edges of **all** statuses are included (SUGGESTED as well), so the UI can offer confirmation. `on_delete_action` is the raw `confdeltype` letter (`a` no action, `r` restrict, `c` cascade, `n` set null, `d` set default). `evidence` merges the edge `details` with origin, constraint and artifact id. **Implementation note:** contrary to security-review-1 M6 and the Lead brief, `LaeServices.schema_graph` (services/impl.py) still calls `pipeline.latest_or_new_snapshot`. A GET here can therefore scan the catalog and **create** a snapshot (actor `reader`) if none exists or the fingerprint changed. It does not return 404 before the first discovery. In the recorded run a snapshot already existed.
+- **Auth:** token. **Response:** `SchemaGraphOut {snapshot_id, level, nodes: list[GraphNodeOut], edges: list[GraphEdgeOut]}` for the latest snapshot. Edges of **all** statuses are included (SUGGESTED as well), so the UI can offer confirmation. `on_delete_action` is the raw `confdeltype` letter (`a` no action, `r` restrict, `c` cascade, `n` set null, `d` set default). `evidence` merges the edge `details` with origin, constraint and artifact id. It never creates a snapshot: 404 before the first discovery.
 
 ```bash
 curl -s -X GET "http://127.0.0.1:8001/api/lineage/schema?level=TABLE" -H "X-LAE-Token: <token>" -H "X-LAE-Actor: docs-approver"
@@ -1063,7 +1062,7 @@ HTTP 200
 ### 5.3 `POST /api/erasure-plans/{plan_id}/conflicts/{conflict_id}/acknowledge`
 - **Auth:** token. **Request (optional):** `ConflictAcknowledge {note?: str ≤ 500}`. **Response:** `PlanOut` with a **new `plan_hash`**, because `resolved` is part of the hashed payload.
 - Only `OPAQUE_ARTIFACT`, `RETAINED_WITH_PII`, `EXTERNAL_ARTIFACT` and `NO_PRIMARY_KEY` can be acknowledged (`planner.ACKNOWLEDGEABLE_CODES`). Allowed on DRAFT and BLOCKED plans. A BLOCKED plan becomes DRAFT once nothing blocking is left. Appends `CONFLICT_ACKNOWLEDGED` with `note_present` (a boolean, never the note text).
-- **Errors:** 404 (unknown conflict), 409 (state), **500 `CONFLICT_NOT_ACKNOWLEDGEABLE`** (see §1 note).
+- **Errors:** 404 (unknown conflict), 409 (state), 409 `CONFLICT_NOT_ACKNOWLEDGEABLE`.
 
 **Acknowledge EXTERNAL_ARTIFACT**
 
@@ -1206,7 +1205,7 @@ HTTP 200
 curl -s -X POST "http://127.0.0.1:8001/api/erasure-plans/42a51f85-d3a9-47ab-bb8a-da1049cc507f/conflicts/21cba39a-8f11-4c26-95dd-be33b055915d/acknowledge" -H "X-LAE-Token: <token>" -H "X-LAE-Actor: docs-approver"
 ```
 
-HTTP 500
+HTTP 409
 
 ```json
 {
@@ -1411,7 +1410,7 @@ HTTP 409
 - **Auth:** token. **Request:** `PlanExecute {mode: "DRY_RUN"|"LIVE"}`. **Response:** `ExecutionOut {id, plan_id, mode, status, started_at, finished_at, steps: list[StepResultOut], error, verification, evidence_id, timings_ms}`.
 - `DRY_RUN`: allowed on DRAFT or APPROVED plans. All steps run in a SERIALIZABLE transaction, which is then rolled back (status `ROLLED_BACK`, event `EXECUTION_ROLLED_BACK`).
 - `LIVE`: requires `APPROVED` and no committed LIVE run, and the caller's `X-LAE-Actor` must differ from the approver's when `LAE_REQUIRE_FOUR_EYES` is true (the default). Otherwise it returns 409 `INVALID_STATE` with `details.rule = "four_eyes"`. The drift check, row locks and rowcount assertions all run in one SERIALIZABLE transaction. `EXECUTION_COMMITTED` is appended in the same transaction. Verification and evidence then run in later transactions and are returned in `verification` and `evidence_id`.
-- **Errors:** 409 `INVALID_STATE` (not approved, already executed: see note), 409 `PLAN_BLOCKED`, `PLAN_HASH_MISMATCH`, `STALE_PLAN`, `ROW_COUNT_MISMATCH`, 503 `SERIALIZATION_CONFLICT`, 500 for other execution errors. On a LIVE error the run is recorded as `FAILED` with `EXECUTION_FAILED`, and the error `details` include `execution_run_id`.
+- **Errors:** 409 `INVALID_STATE` (not approved, already executed: see note), 409 `PLAN_BLOCKED`, `PLAN_HASH_MISMATCH`, `STALE_PLAN`, `ROW_COUNT_MISMATCH`, 503 `SERIALIZATION_CONFLICT`, 409 for other execution errors. On a LIVE error the run is recorded as `FAILED` with `EXECUTION_FAILED`, and the error `details` include `execution_run_id`.
 - **Note (AT-17):** a second LIVE call on an executed plan returns **409 `INVALID_STATE`**, not `ALREADY_EXECUTED`, because the plan status is no longer `APPROVED` (see sample).
 
 **LIVE before approval**

@@ -196,9 +196,9 @@ $$pos = (n-1)\,q,\quad lo = \lfloor pos \rfloor,\quad hi = \min(lo+1, n-1),\quad
 It returns `None` for n = 0 and $x_0$ for n = 1. `describe` reports `p50 = Q(0.50)` and `p95 = Q(0.95)` rounded to 3 decimals, plus n, mean, min and max.
 
 - **Worked example:** timings [10, 20, 30, 40, 50] ms. p50: pos = 2, giving 30. p95: pos = 3.8, giving 40 + 0.8 × 10 = 48 ms.
-- **Status caveat:** at HEAD `118846f` the `benchmarks/ directory is **not committed**. It exists only as untracked work in progress, so this definition may still change. No benchmark results exist in the repository.
+- **Use:** the committed harness (`benchmarks/stats.py`) applies it to 20 subjects per set.
 - **Complexity:** O(n log n) for the sort.
-- **Limitations:** with 5 warm runs, p95 is an interpolation between the two largest samples and is statistically weak.
+- **Limitations:** with 20 subjects per set (fewer when plans are blocked), p95 interpolates between the largest samples and is statistically weak.
 
 ## 13. Plan hash, record-set hash and fingerprint as functions
 

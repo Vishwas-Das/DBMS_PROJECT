@@ -742,22 +742,19 @@ The check matches by HMAC, so after a change of `LAE_HMAC_KEY` old requests are 
 
 ## 24. Read paths never create snapshots
 
-`pipeline.latest_snapshot` serves the read-only discovery path (`run_discovery(..., audit=False)` behind `GET /api/discovery/{id}`). It returns the latest READY snapshot or raises `NotFoundError("no lineage snapshot yet; run discovery first")`. Only mutating paths (`create_request`, `POST /api/discovery`, plan generation) call `latest_or_new_snapshot`, which may scan the catalog and create a snapshot (security-review-1 M6). **Exception (code at `118846f`):** `LaeServices.schema_graph` (`GET /api/lineage/schema`) still calls `latest_or_new_snapshot`, so that GET can still create a snapshot. See §20 #13.
+`pipeline.latest_snapshot` serves the read-only discovery path (`run_discovery(..., audit=False)` behind `GET /api/discovery/{id}`). It returns the latest READY snapshot or raises `NotFoundError("no lineage snapshot yet; run discovery first")`. Only mutating paths (`create_request`, `POST /api/discovery`, plan generation) call `latest_or_new_snapshot`, which may scan the catalog and create a snapshot (security-review-1 M6). `GET /api/lineage/schema` uses `latest_snapshot` too (`test_schema_graph_get_never_creates_a_snapshot`).
 
 ## 20. Discrepancies between design documents and code (code is authoritative here)
 
 | # | Design text | Code |
 |---|---|---|
 | 1 | architecture.md §11: recompute via `TRUNCATE`+`INSERT` | `PgTargetWriter.recompute_table` uses `DELETE FROM t` then `INSERT INTO t <definition>` |
-| 2 | architecture.md §11: `SET LOCAL lock_timeout`, role `lae_executor` | Timeouts are set per connection with `set_config(..., false)` in `db/engine.py`. Execution uses the engine of `LAE_DATABASE_URL`. Migration `0002` adds a non-superuser `lae_app` role (owns `app`, DML on `lae`, no UPDATE/DELETE/TRUNCATE on `audit_event`), which `.env.example` uses. There is no separate `lae_executor` role |
+| 2 | architecture.md §11: `SET LOCAL lock_timeout`, role `lae_executor` | Timeouts are set per connection with `set_config(..., false)` in `db/engine.py`. Execution uses the engine of `LAE_DATABASE_URL`. Migration `0002` adds a non-superuser `lae_app` role (owns `app`, DML on `lae`, no UPDATE/DELETE/TRUNCATE on `audit_event`), which `.env.example` uses. A `lae_executor` role exists but no code uses it |
 | 3 | architecture.md §13: purge after `EVIDENCE_ISSUED`, raw keys "replaced by HMACs" | The subject key is purged only for `VERIFIED`. Raw keys are set to NULL (HMACs were stored earlier), across all plan versions. Superseded versions are purged at re-plan time |
 | 4 | development_plan AT-15: `EXECUTION_ROLLED_BACK` on a failed LIVE run | A failed LIVE run appends `EXECUTION_FAILED`. `EXECUTION_ROLLED_BACK` is used for DRY_RUN |
 | 5 | AT-17: second LIVE gives `ALREADY_EXECUTED` | After commit the plan is `EXECUTED`/`VERIFIED`, so `pipeline.execute` raises `INVALID_STATE` first (observed in the real run). `ALREADY_EXECUTED` is reachable only if the status is still `APPROVED` |
 | 6 | architecture.md §12 `EMBEDDING_ABSENT` includes vector digests | Key-based only (deferred) |
 | 7 | architecture.md §8 rule 3: SHARED = "referencing another subject's root row" | Conservative fixpoint: any reference to a row outside {SUBJECT_ROOT, OWNED} |
 | 8 | architecture.md §6/§7: matview PKs | Matviews have no PK in the catalog. Their rows are predicate keys |
-| 9 | CLAUDE.md `uvicorn lae.api.app:app`, `lae erase ... --dry-run`, `lae bench run` | The ASGI app is `lae.api.main:app`. `lae erase` dry-runs by default (`--live --yes` for LIVE) and has no `--dry-run` flag. There is no `bench` CLI command at HEAD |
-| 10 | `PlanError` codes `CONFLICT_*` / `INVALID_PLAN` / `MISSING_DEFINITION` proposed as 404/409/422 (CR erasure-1 §4) | Not in `STATUS_BY_CODE`, so they return **500** with their own code (observed: acknowledging `SHARED_RECORD` → 500 `CONFLICT_NOT_ACKNOWLEDGEABLE`) |
 | 11 | `GET /api/discovery/{id}` "latest result, no re-run" (CR frontend-1 decision) | `LaeServices.latest_discovery` **re-runs** discovery read-only, without an audit event, on the latest existing snapshot (`pipeline.latest_snapshot`; it never creates one, 404 if none exists) |
 | 12 | `suggest_pii` (module_contracts §5) | Implemented in `discovery/pii.py` but not called by any service, API or CLI path |
-| 13 | security-review-1 M6: "GETs never create snapshots (`latest_snapshot`, 404 before the first discovery)" | Holds for `GET /api/discovery/{id}`, but not for `GET /api/lineage/schema`, which uses `latest_or_new_snapshot` (`services/impl.py: LaeServices.schema_graph`) |

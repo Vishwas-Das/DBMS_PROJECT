@@ -39,11 +39,11 @@ Adversaries considered: (A1) a local user or web page that can reach the API; (A
 
 **A valid signature proves authenticity, not erasure.** An evidence bundle that verifies offline shows:
 1. the bundle was produced by the holder of the signing key whose public key you trust;
-2. its content (plan hash, record-set hash, step counts, verification checks, outcome, Merkle root of per-record leaves) has not been altered since signing;
+2. its content (plan hash, record-set hash, step counts, verification status and checks, Merkle root of per-record leaves) has not been altered since signing;
 3. if a chain export is supplied, the audit chain up to the anchored event is internally consistent, and its stored columns match their hashed envelopes.
 
 It does **not** prove:
-- that every copy of the person's data is gone. It proves only that the *checks the system knew how to run* passed. Read the `verification.outcome` field: `PARTIAL` and `FAILED` bundles are just as validly signed as `VERIFIED` ones;
+- that every copy of the person's data is gone. It proves only that the *checks the system knew how to run* passed. The signed v1 bundle has `verification.status` (PASSED / FAILED) but **no outcome field**: a `PARTIAL` erasure is signed as `PASSED`. Read the outcome from the API or the audit events;
 - anything about data outside PostgreSQL's live relations: backups, WAL, replicas, dead tuples before `VACUUM`, OS caches, log files, exports, other systems (`EXTERNAL` artifacts are only *scheduled*);
 - that the operator who controls both the database and the signing key did not fabricate a consistent history from the start. Hash chains are **tamper-evident**, not tamper-proof. Detection requires an anchor kept by someone else (see §4);
 - who the human was. `X-LAE-Actor` is a claim made under a single shared token. The chain proves the claim was recorded, not the identity behind it.

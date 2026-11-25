@@ -564,7 +564,7 @@ All **[IMPL]**: `integration/db/test_constraints.py` (`test_check_rejects`, `tes
 | `lae_owner` | the container (`POSTGRES_USER`) | Owns databases and schemas; runs migrations. The default `Settings.database_url` uses it. |
 | `lae_reader` | `db/init/01_init.sql` (LOGIN) or `0001` (NOLOGIN if absent) | `USAGE` on `lae`, `app`; `SELECT` on all `lae` tables (0001) and `app` tables (init default privileges, `app_derived.sql`, `grant_app_role`). |
 | `lae_app` | `01_init.sql` (LOGIN) or `0002` (NOLOGIN) | Owns `app` objects; DML on `lae` except UPDATE/DELETE/TRUNCATE on `audit_event`; does not own `audit_event`, so it cannot disable the trigger. |
-| `lae_executor` | `01_init.sql` only | Default privileges for DML on `app`. **Not used** by the code at HEAD (no engine is built for it). |
+| `lae_executor` | `01_init.sql`, `create_test_dbs.py` | Default privileges for DML on `app`. **Not used** by the code at HEAD (no engine is built for it). |
 
 `01_init.sql` also creates `lae_test` and the per-workstream test databases `lae_test_qa`, `lae_test_bench`, `lae_test_disc`, `lae_test_erasure`, `lae_test_lead`, `lae_test_verif`, each with `pgcrypto`, `vector` and schemas `lae` and `app`. **[LIMIT]** It contains dev-only passwords (security review L8, security_analysis.md §4). This document does not repeat them.
 
@@ -1728,7 +1728,7 @@ Each item gives its source. The consolidated list is in [limitations.md](limitat
 | 2 | One PostgreSQL database. `EXTERNAL` artifacts are only scheduled (`SCHEDULE_EXTERNAL`), so subjects linked to them reach **PARTIAL** at best | limitations.md §1. benchmarking.md (no VERIFIED outcome in any LAE set) |
 | 3 | Not a legal-compliance tool. Retention policies are operator input | README, methodology.md |
 | 4 | Lineage sources are FKs, view/matview SQL, registered mappings and confirmed inferences. App code, triggers, procedures and ETL are not analysed | limitations.md §2 |
-| 5 | Containment inference did not suggest the hidden-copy table at θ = 0.95 (0.805). The residual scan plus human confirmation closes the gap | limitations.md §2, CR lineage-discovery-engineer-2 |
+| 5 | Containment inference did not suggest the hidden-copy table at θ = 0.95 at tiny scale (confidence 0.805). The residual scan plus human confirmation closes the gap | limitations.md §2, CR lineage-discovery-engineer-2 |
 | 6 | Confirmed text edges match exact values, so case/whitespace variants survive (the scan still reports them) | limitations.md §2, benchmarking.md §4 |
 | 7 | SQLGlot gaps (recursive CTEs, UDFs, LATERAL SRFs, dynamic SQL) make an artifact OPAQUE / UNRESOLVED | limitations.md §2 |
 | 8 | The SHARED rule is conservative (it may protect rows a human would call owned) | CR lineage-discovery-engineer-2 §3 |
@@ -1863,7 +1863,7 @@ The design documents were written before implementation. Where they disagree wit
 | 12 | `AuditEventOut.event_id` is the stored event id (database_schema.md §6) | Derived from the event hash (`UUID(event_hash[:32])`) | limitations.md §5 |
 | 13 | B1 benchmark at 100k subjects, B1–B6 scenarios (architecture.md §14) | One scenario (B5 completeness + latency) at 100 / 1 000 / 10 000 customers, 20 subjects per set, plus the feedback experiment | benchmarking.md |
 | 14 | AT-01 expects 15 relations (development_plan.md §6) | The catalog has 17 relations (`app.document`, `app.customer_profile_cache` added) | CR lead-1 §5 |
-| 15 | AT-06 inference suggests `marketing_event_log.email` at θ = 0.95 | Not suggested (containment 0.805). Suggested by residual-scan feedback instead | CR lineage-discovery-engineer-2 §2 |
+| 15 | AT-06 inference suggests `marketing_event_log.email` at θ = 0.95 | Not suggested at tiny scale (containment 17/19, confidence 0.805); suggested at default scale. Suggested by residual-scan feedback instead | CR lineage-discovery-engineer-2 §2 |
 | 16 | AT-15 records `EXECUTION_ROLLED_BACK` for a failed LIVE run | `EXECUTION_FAILED` (ROLLED_BACK is used for dry runs) | code fact |
 | 17 | AT-17 returns `ALREADY_EXECUTED` | A repeat LIVE execution returns 409 `INVALID_STATE` (the plan is no longer APPROVED). The unique index still guarantees idempotency | code fact |
 | 18 | Agents work in git worktrees (development_plan.md §5) | Agents worked in one shared tree on disjoint paths. The Lead committed | development_progress.md |

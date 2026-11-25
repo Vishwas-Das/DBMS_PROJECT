@@ -77,7 +77,7 @@ An analogy you can use: *"It's like a careful house-cleaner. First they **survey
 ## PART 5: LIVE DEMO SCRIPT (click by click, with what to say)
 
 > **Before the viva:** Docker Desktop running. Then, in two PowerShell windows, run `.\scripts\start-backend.ps1` and `.\scripts\start-frontend.ps1`. Open http://localhost:5173. Click **Settings** and paste the token (print it with `Select-String -Path .env -Pattern '^LAE_API_TOKEN=' | ForEach-Object { $_.Line.Split('=',2)[1] }`). Set **Approver = alice** and **Executor = bob**.
-> If you want fresh data first: `.\.venv\Scripts\lae db seed --scale default --seed 42`.
+> If you want fresh data first: `.\.venv\Scripts\lae db seed --scale default --seed 42 --yes`.
 
 ### Screen 1: Dashboard
 - **Show:** synthetic customers (1 000), discovered tables (17), edges, audit events, and the health badges (API, DB, audit chain VALID).
@@ -85,7 +85,7 @@ An analogy you can use: *"It's like a careful house-cleaner. First they **survey
 
 ### Screen 2: Erasure Requests
 - **Do:** search a customer, select one, and click create request.
-- **Say:** "The email is masked. The system stores the customer key only temporarily. In the audit log it appears only as an **HMAC fingerprint**, a keyed hash, so the audit trail contains no personal data. If I try to create a second request for the same person, it's refused."
+- **Say:** "The email is masked. The system stores the customer key only temporarily. In the audit log it appears only as an **HMAC fingerprint**, a keyed hash, so the audit trail contains no personal data. While one request is open, a second one for the same person is refused."
 
 ### Screen 3: Erasure Plan
 - **Do:** Run discovery, then Generate plan.
@@ -122,14 +122,14 @@ An analogy you can use: *"It's like a careful house-cleaner. First they **survey
 - **Show:** the outcome **FAILED**, with residual hits in `app.marketing_event_log.email`.
 - **Say:** "This is the key experiment. `marketing_event_log` has **no foreign key** to customers, so lineage can't see it. The independent scan **found** the leftover copies, so the system honestly reports FAILED instead of a false success. It then **suggests** a new relationship, `customer.email → marketing_event_log.email`."
 - **Do:** Lineage Explorer, find the suggested edge, Confirm it. Then erase the *next* such customer.
-- **Say:** "Once a human confirms the suggestion, the next plan deletes those copies too. In our benchmark, one confirmation removed **82–95 %** of the hidden copies for later customers."
+- **Say:** "Once a human confirms the suggestion, the next plan deletes those copies too. In our benchmark, one confirmation removed **83–95 %** of the hidden copies for later customers."
 
 ### Screen 8: Lineage Explorer
 - **Show:** the table-level graph, then the column-level graph, then the record-level graph, and click an edge to see its **evidence** (which FK constraint or SQL produced it).
 - **Say:** "There are three levels of lineage. Table level says customer is linked to orders. Column level says `customer.id` feeds `purchase_order.customer_id`. Record level says customer **42** owns order **1001**. Only the record level tells you what to actually erase."
 
 ### Screen 9: Benchmarks
-- Show the stored runs. "These are measured results, explained in Part 10."
+- Show the stored runs (present only if `benchmarks.run` stored results in the dev database). "These are measured results, explained in Part 10."
 
 ---
 
@@ -285,7 +285,7 @@ Precision = 3/4 = 0.75. Recall = 3/5 = 0.60. F1 = 2·0.75·0.60 / 1.35 ≈ 0.667
 - "The manual script failed for **59 of 60** customers, on a foreign-key RESTRICT. That's exactly why plain DELETE isn't enough."
 - "FK-only deletes whatever it can reach, including legally retained invoices and other people's messages. It's unsafe."
 - "LAE is the only one with high coverage **and** zero damage. It's slower (seconds, not milliseconds), mostly because the independent scan checks every text cell. That's a per-request cost, which is acceptable for erasure requests."
-- "Why isn't LAE at 100 %? Two measured reasons. (1) It **refuses** plans that would destroy someone else's data (blocked, by design). (2) Hidden copies with no FK can't be found by lineage. The scan catches them and, after one human confirmation, 82–95 % of them were removed for later customers."
+- "Why isn't LAE at 100 %? Two measured reasons. (1) It **refuses** plans that would destroy someone else's data (blocked, by design). (2) Hidden copies with no FK can't be found by lineage. The scan catches them and, after one human confirmation, 83–95 % of them were removed for later customers."
 
 ---
 
@@ -367,7 +367,7 @@ Precision = 3/4 = 0.75. Recall = 3/5 = 0.60. F1 = 2·0.75·0.60 / 1.35 ≈ 0.667
 | UI says "Enter a valid API token" | Settings → paste the token again |
 | "separation of duties" when executing | Approver and Executor names must be different (alice / bob) |
 | Plan is BLOCKED | That's a *feature*: the customer has a shared record. Explain Part 6.3, then pick another customer |
-| A customer was already erased | Pick another, or reset: `.\.venv\Scripts\lae db seed --scale default --seed 42` |
+| A customer was already erased | Pick another, or reset: `.\.venv\Scripts\lae db seed --scale default --seed 42 --yes` |
 | Backend won't start ("address already in use") | Something is still on port 8000: close the old window, or restart the PC terminal |
 | Nothing loads | Docker Desktop must be running: `docker compose up -d db` |
 
